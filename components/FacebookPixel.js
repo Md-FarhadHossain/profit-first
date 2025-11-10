@@ -1,11 +1,11 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
-export default function FacebookPixel({ pixelId }) {
+function FacebookPixelContent({ pixelId }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-
+  
   useEffect(() => {
     let ReactPixel
     
@@ -20,7 +20,7 @@ export default function FacebookPixel({ pixelId }) {
     
     initPixel()
   }, [pixelId])
-
+  
   useEffect(() => {
     const trackPageView = async () => {
       const ReactPixel = (await import('react-facebook-pixel')).default
@@ -29,6 +29,14 @@ export default function FacebookPixel({ pixelId }) {
     
     trackPageView()
   }, [pathname, searchParams])
-
+  
   return null
-} 
+}
+
+export default function FacebookPixel({ pixelId }) {
+  return (
+    <Suspense fallback={null}>
+      <FacebookPixelContent pixelId={pixelId} />
+    </Suspense>
+  )
+}
