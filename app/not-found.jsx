@@ -5,17 +5,26 @@ import { useSearchParams } from 'next/navigation'
 
 function NotFoundContent() {
   const searchParams = useSearchParams()
-  // Your 404 page content
+  
+  // Your existing 404 page code here
+  
   return (
-    <div>
-      <h1>404 - Page Not Found</h1>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold">404</h1>
+        <p>Page Not Found</p>
+      </div>
     </div>
   )
 }
 
-export default function NotFound() {
+export default function Custom404() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div>Loading...</div>
+      </div>
+    }>
       <NotFoundContent />
     </Suspense>
   )
