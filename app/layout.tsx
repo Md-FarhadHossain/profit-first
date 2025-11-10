@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import localFont from 'next/font/local'
 import FacebookPixel from '@/components/FacebookPixel'
+import { Suspense } from "react";
 const pixelId = process.env.NEXT_PUBLIC_FACEBOOK_PIXEL_ID;
 
 
@@ -39,7 +40,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased ${myFont.className}`}
       >
      
+          <Suspense fallback={null}>
           <FacebookPixel pixelId={pixelId} />
+       
+        </Suspense>
         
         <ClerkProvider>{children}</ClerkProvider>
 
