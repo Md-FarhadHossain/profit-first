@@ -102,8 +102,8 @@ const HeroSection = () => {
   const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting || !clientInfo.ip) {
-        alert('Please wait a moment while we prepare everything...');
-        return;
+      alert('Please wait a moment while we prepare everything...');
+      return;
     }
     setIsSubmitting(true);
 
@@ -112,7 +112,7 @@ const HeroSection = () => {
     const address = event.target.address.value;
 
     const shippingCost = shipping === "outside-dhaka" ? 99.00 : 60.00;
-    const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : " ঢাকার ভিতরে";
+    const shippingMethod = shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
     const totalValue = PRODUCT_PRICE + shippingCost;
 
     const userDataForBackend = {
@@ -128,18 +128,13 @@ const HeroSection = () => {
 
     try {
       // This is where you would typically send the order to your backend.
-      // For this example, we'll simulate a successful order and fire the GTM event.
-      // const makeOrder = await fetch(`http://localhost:5000/orders`, {
-      //   method: "POST",
-      //   headers: { "content-type": "application/json" },
-      //   body: JSON.stringify(userDataForBackend),
-      // });
+      // We are simulating a successful order for this example.
+      // const makeOrder = await fetch(`http://localhost:5000/orders`, { ... });
       // const orderJson = await makeOrder.json();
       
-      // Simulating a successful response for demonstration
       const simulatedOrderId = `order_${new Date().getTime()}`;
       console.log("✅ Your order is placed! (Simulated)");
-      
+
       // Fire the purchase event to GTM
       gtmEvent('purchase', {
         visitorIP: clientInfo.ip,
@@ -160,14 +155,29 @@ const HeroSection = () => {
       });
       console.log('✅ purchase event fired to GTM');
 
-      // Redirect to a thank-you page after successful purchase
-      // The redirect logic from your original code can be used here.
-      alert("Order placed successfully!");
+      // --- [START] REDIRECT TO THANK YOU PAGE ---
+      // We send all necessary data to the thank-you page via URL parameters
+      const params = new URLSearchParams({
+        orderId: simulatedOrderId,
+        total: totalValue.toString(),
+        shippingCost: shippingCost.toString(),
+        currency: CURRENCY,
+        productId: PRODUCT_ID,
+        productName: PRODUCT_NAME,
+        categoryName: PRODUCT_CATEGORY,
+        price: PRODUCT_PRICE.toString(),
+        quantity: '1',
+      });
+      
+      window.location.href = `/thank-you?${params.toString()}`;
+      // --- [END] REDIRECT TO THANK YOU PAGE ---
 
     } catch (error) {
       console.error("❌ Error placing order:", error);
       alert("There was a problem with your order. Please try again.");
     } finally {
+      // This part might not be reached if the redirect happens,
+      // but it's good practice for error handling.
       setIsSubmitting(false);
     }
   };
@@ -235,7 +245,7 @@ const HeroSection = () => {
                     value="outside-dhaka" 
                     id="outside-dhaka"
                     disabled={isSubmitting}
-                 />
+                  />
                   <span className="text-2xl">ঢাকার বাহিরে:</span>
                 </div>
                 <span className="font-medium">99.00৳</span>
