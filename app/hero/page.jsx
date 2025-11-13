@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 
 // --- GTM HELPER FUNCTION ---
 const gtmEvent = (eventName, eventData = {}) => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ event: eventName, ...eventData });
   }
@@ -16,22 +16,20 @@ const gtmEvent = (eventName, eventData = {}) => {
 
 // --- PRODUCT DETAILS ---
 const PRODUCT_PRICE = 590;
-const PRODUCT_ID = '973';
-const PRODUCT_NAME = 'Profit First for F-Commerce';
-const PRODUCT_CATEGORY = 'Books';
-const CURRENCY = 'BDT';
+const PRODUCT_ID = "973";
+const PRODUCT_NAME = "Profit First for F-Commerce";
+const PRODUCT_CATEGORY = "Books";
+const CURRENCY = "BDT";
 const POST_ID = 913;
-const POST_TYPE = 'product';
+const POST_TYPE = "product";
 
 const HeroSection = () => {
   const [shipping, setShipping] = useState("outside-dhaka");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
-  const [clientInfo, setClientInfo] = useState({
-    ip: null,
-    userAgent: null,
-  });
+  const [clientInfo, setClientInfo] = useState({ ip: null, userAgent: null });
   const sectionRef = useRef(null);
+  const hasAddedToCart = useRef(false); // 🟢 Prevent multiple fires
 
   // --- INITIAL DATA FETCHING (Client Info & View Item) ---
   useEffect(() => {
@@ -39,14 +37,13 @@ const HeroSection = () => {
 
     const fetchIp = async () => {
       try {
-        // This assumes you have an API route at /api/ip to get the user's IP address.
-        const response = await fetch('/api/ip');
-        if (!response.ok) throw new Error('Failed to fetch IP');
+        const response = await fetch("/api/ip");
+        if (!response.ok) throw new Error("Failed to fetch IP");
         const data = await response.json();
         return data.ip;
       } catch (error) {
         console.error("Could not fetch IP:", error);
-        return '0.0.0.0'; // Fallback IP
+        return "0.0.0.0";
       }
     };
 
@@ -54,55 +51,97 @@ const HeroSection = () => {
       const ip = await fetchIp();
       setClientInfo({ ip, userAgent: ua });
 
-      // Fire view_item event when the component mounts
-      gtmEvent('view_item', {
+      // Fire view_item when page loads
+      gtmEvent("view_item", {
         visitorIP: ip,
         browserName: ua,
         ecommerce: {
           currency: CURRENCY,
           value: PRODUCT_PRICE,
-          items: [{
-            item_id: PRODUCT_ID,
-            item_name: PRODUCT_NAME,
-            price: PRODUCT_PRICE,
-            item_category: PRODUCT_CATEGORY,
-            quantity: 1
-          }]
-        }
+          items: [
+            {
+              item_id: PRODUCT_ID,
+              item_name: PRODUCT_NAME,
+              price: PRODUCT_PRICE,
+              item_category: PRODUCT_CATEGORY,
+              quantity: 1,
+            },
+          ],
+        },
       });
-      console.log('✅ view_item event fired to GTM');
+      console.log("✅ view_item event fired to GTM");
     };
 
     initializeTracking();
   }, []);
 
+  // 🟢 ADD_TO_CART Tracking when HeroSection becomes visible
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasAddedToCart.current) {
+            gtmEvent("add_to_cart", {
+              visitorIP: clientInfo.ip,
+              browserName: clientInfo.userAgent,
+              ecommerce: {
+                currency: CURRENCY,
+                value: PRODUCT_PRICE,
+                items: [
+                  {
+                    item_id: PRODUCT_ID,
+                    item_name: PRODUCT_NAME,
+                    price: PRODUCT_PRICE,
+                    item_category: PRODUCT_CATEGORY,
+                    quantity: 1,
+                  },
+                ],
+              },
+            });
+            hasAddedToCart.current = true;
+            console.log("🟢 add_to_cart event fired to GTM (HeroSection visible)");
+          }
+        });
+      },
+      { threshold: 0.5 } // fires when 50% of section visible
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [clientInfo]);
+
   // --- GTM ECOMMERCE EVENT HANDLERS ---
   const handleBeginCheckout = () => {
     if (!checkoutStarted) {
-      gtmEvent('begin_checkout', {
+      gtmEvent("begin_checkout", {
         visitorIP: clientInfo.ip,
         browserName: clientInfo.userAgent,
         ecommerce: {
           currency: CURRENCY,
           value: PRODUCT_PRICE,
-          items: [{
-            item_id: PRODUCT_ID,
-            item_name: PRODUCT_NAME,
-            price: PRODUCT_PRICE,
-            item_category: PRODUCT_CATEGORY,
-            quantity: 1
-          }]
-        }
+          items: [
+            {
+              item_id: PRODUCT_ID,
+              item_name: PRODUCT_NAME,
+              price: PRODUCT_PRICE,
+              item_category: PRODUCT_CATEGORY,
+              quantity: 1,
+            },
+          ],
+        },
       });
       setCheckoutStarted(true);
-      console.log('✅ begin_checkout event fired to GTM');
+      console.log("✅ begin_checkout event fired to GTM");
     }
   };
 
   const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting || !clientInfo.ip) {
-      alert('Please wait a moment while we prepare everything...');
+      alert("Please wait a moment while we prepare everything...");
       return;
     }
     setIsSubmitting(true);
@@ -111,32 +150,16 @@ const HeroSection = () => {
     const number = event.target.billing_phone.value;
     const address = event.target.address.value;
 
-    const shippingCost = shipping === "outside-dhaka" ? 99.00 : 60.00;
-    const shippingMethod = shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
+    const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
+    const shippingMethod =
+      shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
     const totalValue = PRODUCT_PRICE + shippingCost;
 
-    const userDataForBackend = {
-      name,
-      number,
-      address,
-      shippingMethod,
-      shippingCost,
-      totalValue,
-      productId: PRODUCT_ID,
-      currency: CURRENCY,
-    };
-
     try {
-      // This is where you would typically send the order to your backend.
-      // We are simulating a successful order for this example.
-      // const makeOrder = await fetch(`http://localhost:5000/orders`, { ... });
-      // const orderJson = await makeOrder.json();
-      
       const simulatedOrderId = `order_${new Date().getTime()}`;
       console.log("✅ Your order is placed! (Simulated)");
 
-      // Fire the purchase event to GTM
-      gtmEvent('purchase', {
+      gtmEvent("purchase", {
         visitorIP: clientInfo.ip,
         browserName: clientInfo.userAgent,
         ecommerce: {
@@ -144,19 +167,19 @@ const HeroSection = () => {
           transaction_id: simulatedOrderId,
           value: totalValue,
           shipping: shippingCost,
-          items: [{
-            item_id: PRODUCT_ID,
-            item_name: PRODUCT_NAME,
-            price: PRODUCT_PRICE,
-            item_category: PRODUCT_CATEGORY,
-            quantity: 1
-          }]
-        }
+          items: [
+            {
+              item_id: PRODUCT_ID,
+              item_name: PRODUCT_NAME,
+              price: PRODUCT_PRICE,
+              item_category: PRODUCT_CATEGORY,
+              quantity: 1,
+            },
+          ],
+        },
       });
-      console.log('✅ purchase event fired to GTM');
+      console.log("✅ purchase event fired to GTM");
 
-      // --- [START] REDIRECT TO THANK YOU PAGE ---
-      // We send all necessary data to the thank-you page via URL parameters
       const params = new URLSearchParams({
         orderId: simulatedOrderId,
         total: totalValue.toString(),
@@ -166,23 +189,20 @@ const HeroSection = () => {
         productName: PRODUCT_NAME,
         categoryName: PRODUCT_CATEGORY,
         price: PRODUCT_PRICE.toString(),
-        quantity: '1',
+        quantity: "1",
       });
-      
-      window.location.href = `/thank-you?${params.toString()}`;
-      // --- [END] REDIRECT TO THANK YOU PAGE ---
 
+      window.location.href = `/thank-you?${params.toString()}`;
     } catch (error) {
       console.error("❌ Error placing order:", error);
       alert("There was a problem with your order. Please try again.");
     } finally {
-      // This part might not be reached if the redirect happens,
-      // but it's good practice for error handling.
       setIsSubmitting(false);
     }
   };
 
-  const calculatedTotal = PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
+  const calculatedTotal =
+    PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
   return (
     <section ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
@@ -190,7 +210,7 @@ const HeroSection = () => {
         <h1 className="text-4xl text-center mb-8 font-bold">
           বইটি অর্ডার করতে নিচের ফর্মটি পূরণ করুন
         </h1>
-        
+
         <form onSubmit={handleOrder} className="grid gap-4 max-w-2xl mx-auto">
           <div className="flex flex-col sm:flex-row gap-4">
             <Input
@@ -199,7 +219,7 @@ const HeroSection = () => {
               name="name"
               required
               type="text"
-              onFocus={handleBeginCheckout} // Fire begin_checkout when user starts filling the form
+              onFocus={handleBeginCheckout}
               disabled={isSubmitting}
             />
             <Input
@@ -227,7 +247,9 @@ const HeroSection = () => {
           />
 
           <div className="w-full">
-            <h2 className="text-2xl font-semibold mb-4">Shipping (শিপিং চার্জ)</h2>
+            <h2 className="text-2xl font-semibold mb-4">
+              Shipping (শিপিং চার্জ)
+            </h2>
             <RadioGroup
               value={shipping}
               onValueChange={setShipping}
@@ -241,8 +263,8 @@ const HeroSection = () => {
                 } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem 
-                    value="outside-dhaka" 
+                  <RadioGroupItem
+                    value="outside-dhaka"
                     id="outside-dhaka"
                     disabled={isSubmitting}
                   />
@@ -258,8 +280,8 @@ const HeroSection = () => {
                 } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem 
-                    value="inside-dhaka" 
+                  <RadioGroupItem
+                    value="inside-dhaka"
                     id="inside-dhaka"
                     disabled={isSubmitting}
                   />
@@ -291,7 +313,7 @@ const HeroSection = () => {
             </div>
           </div>
 
-          <Button 
+          <Button
             className="w-full py-6 text-2xl font-bold"
             type="submit"
             disabled={isSubmitting || !clientInfo.ip}
