@@ -138,69 +138,59 @@ const HeroSection = () => {
     }
   };
 
-  const handleOrder = async (event) => {
-    event.preventDefault();
-    if (isSubmitting || !clientInfo.ip) {
-      alert("Please wait a moment while we prepare everything...");
-      return;
-    }
-    setIsSubmitting(true);
+const handleOrder = async (event) => {
+  event.preventDefault();
+  if (isSubmitting || !clientInfo.ip) {
+    alert("Please wait a moment while we prepare everything...");
+    return;
+  }
+  setIsSubmitting(true);
 
-    const name = event.target.name.value;
-    const number = event.target.billing_phone.value;
-    const address = event.target.address.value;
+  const name = event.target.name.value;
+  const number = event.target.billing_phone.value;
+  const address = event.target.address.value;
 
-    const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-    const shippingMethod =
-      shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
-    const totalValue = PRODUCT_PRICE + shippingCost;
+  const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
+  const shippingMethod =
+    shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
+  const totalValue = PRODUCT_PRICE + shippingCost;
 
-    try {
-      const simulatedOrderId = `order_${new Date().getTime()}`;
-      console.log("✅ Your order is placed! (Simulated)");
+  try {
+    const simulatedOrderId = `order_${new Date().getTime()}`;
+    console.log("✅ Your order is placed! (Simulated)");
 
-      gtmEvent("purchase", {
-        visitorIP: clientInfo.ip,
-        browserName: clientInfo.userAgent,
-        ecommerce: {
-          currency: CURRENCY,
-          transaction_id: simulatedOrderId,
-          value: totalValue,
-          shipping: shippingCost,
-          items: [
-            {
-              item_id: PRODUCT_ID,
-              item_name: PRODUCT_NAME,
-              price: PRODUCT_PRICE,
-              item_category: PRODUCT_CATEGORY,
-              quantity: 1,
-            },
-          ],
-        },
-      });
-      console.log("✅ purchase event fired to GTM");
+    // REMOVE THE GTM PURCHASE EVENT FROM HERE
+    /*
+    gtmEvent("purchase", {
+      visitorIP: clientInfo.ip,
+      browserName: clientInfo.userAgent,
+      ecommerce: {
+        // ... (event data)
+      },
+    });
+    console.log("✅ purchase event fired to GTM");
+    */
 
-      const params = new URLSearchParams({
-        orderId: simulatedOrderId,
-        total: totalValue.toString(),
-        shippingCost: shippingCost.toString(),
-        currency: CURRENCY,
-        productId: PRODUCT_ID,
-        productName: PRODUCT_NAME,
-        categoryName: PRODUCT_CATEGORY,
-        price: PRODUCT_PRICE.toString(),
-        quantity: "1",
-      });
+    const params = new URLSearchParams({
+      orderId: simulatedOrderId,
+      total: totalValue.toString(),
+      shippingCost: shippingCost.toString(),
+      currency: CURRENCY,
+      productId: PRODUCT_ID,
+      productName: PRODUCT_NAME,
+      categoryName: PRODUCT_CATEGORY,
+      price: PRODUCT_PRICE.toString(),
+      quantity: "1",
+    });
 
-      window.location.href = `/thank-you?${params.toString()}`;
-    } catch (error) {
-      console.error("❌ Error placing order:", error);
-      alert("There was a problem with your order. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+    window.location.href = `/thank-you?${params.toString()}`;
+  } catch (error) {
+    console.error("❌ Error placing order:", error);
+    alert("There was a problem with your order. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const calculatedTotal =
     PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
