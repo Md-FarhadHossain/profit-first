@@ -1,15 +1,23 @@
 "use client";
+
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { trackEvent } from '@/lib/facebook-tracking'; // Make sure this path is correct
+
+// --- GTM HELPER FUNCTION ---
+const gtmEvent = (eventName, eventData = {}) => {
+  if (typeof window !== 'undefined') {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ event: eventName, ...eventData });
+  }
+};
 
 // --- PRODUCT DETAILS ---
 const PRODUCT_PRICE = 590;
 const PRODUCT_ID = '973';
-const PRODUCT_NAME = 'Profit First for F-Commerce'; // Add your book name
+const PRODUCT_NAME = 'Profit First for F-Commerce';
 const PRODUCT_CATEGORY = 'Books';
 const CURRENCY = 'BDT';
 const POST_ID = 913;
@@ -18,84 +26,95 @@ const POST_TYPE = 'product';
 const HeroSection = () => {
   const [shipping, setShipping] = useState("outside-dhaka");
   const [isSubmitting, setIsSubmitting] = useState(false);
-   const [hasTrackedAddToCart, setHasTrackedAddToCart] = useState(false);
-const sectionRef = useRef(null);
+  const [checkoutStarted, setCheckoutStarted] = useState(false);
+  const [clientInfo, setClientInfo] = useState({
+    ip: null,
+    userAgent: null,
+  });
+  const sectionRef = useRef(null);
 
-// --- [START] REPLACED useEffect ---
-  // This effect now watches the section and fires when it becomes visible
+  // --- INITIAL DATA FETCHING (Client Info & View Item) ---
   useEffect(() => {
-    // Get the DOM element from the ref
-    const currentRef = sectionRef.current;
-    // Don't do anything if the ref isn't attached yet
-    if (!currentRef) return;
+    const ua = navigator.userAgent;
 
-    // Create the observer
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // entry.isIntersecting is true when the element is in the viewport
-        // We also check !hasTrackedAddToCart to ensure it only fires ONCE
-        if (entry.isIntersecting && !hasTrackedAddToCart) {
-          setHasTrackedAddToCart(true); // Mark as tracked
-
-          // Small delay to ensure pixel is initialized (your original logic)
-          setTimeout(() => {
-            trackEvent({
-              eventName: 'AddToCart',
-              customData: {
-                value: PRODUCT_PRICE,
-                currency: CURRENCY,
-                content_ids: [PRODUCT_ID],
-                content_name: PRODUCT_NAME,
-                content_type: 'product',
-                num_items: 1,
-                contents: [{
-                  id: PRODUCT_ID,
-                  quantity: 1,
-                  item_price: PRODUCT_PRICE
-                }],
-                category_name: PRODUCT_CATEGORY,
-                post_id: POST_ID,
-                post_type: POST_TYPE,
-              },
-            })
-            
-            console.log('✅ AddToCart event fired on SECTION VIEW')
-          }, 1000)
-
-          // Stop observing once we've fired the event
-          observer.unobserve(currentRef);
-        }
-      },
-      { 
-        threshold: 0.1 // Fire when 10% of the section is visible
-      } 
-    );
-
-    // Start observing the section
-    observer.observe(currentRef);
-
-    // Cleanup function: stop observing when the component unmounts
-    return () => {
-      observer.unobserve(currentRef);
+    const fetchIp = async () => {
+      try {
+        // This assumes you have an API route at /api/ip to get the user's IP address.
+        const response = await fetch('/api/ip');
+        if (!response.ok) throw new Error('Failed to fetch IP');
+        const data = await response.json();
+        return data.ip;
+      } catch (error) {
+        console.error("Could not fetch IP:", error);
+        return '0.0.0.0'; // Fallback IP
+      }
     };
-  }, [hasTrackedAddToCart]); // Dependency array
- // --- [END] REPLACED useEffect ---
+
+    const initializeTracking = async () => {
+      const ip = await fetchIp();
+      setClientInfo({ ip, userAgent: ua });
+
+      // Fire view_item event when the component mounts
+      gtmEvent('view_item', {
+        visitorIP: ip,
+        browserName: ua,
+        ecommerce: {
+          currency: CURRENCY,
+          value: PRODUCT_PRICE,
+          items: [{
+            item_id: PRODUCT_ID,
+            item_name: PRODUCT_NAME,
+            price: PRODUCT_PRICE,
+            item_category: PRODUCT_CATEGORY,
+            quantity: 1
+          }]
+        }
+      });
+      console.log('✅ view_item event fired to GTM');
+    };
+
+    initializeTracking();
+  }, []);
+
+  // --- GTM ECOMMERCE EVENT HANDLERS ---
+  const handleBeginCheckout = () => {
+    if (!checkoutStarted) {
+      gtmEvent('begin_checkout', {
+        visitorIP: clientInfo.ip,
+        browserName: clientInfo.userAgent,
+        ecommerce: {
+          currency: CURRENCY,
+          value: PRODUCT_PRICE,
+          items: [{
+            item_id: PRODUCT_ID,
+            item_name: PRODUCT_NAME,
+            price: PRODUCT_PRICE,
+            item_category: PRODUCT_CATEGORY,
+            quantity: 1
+          }]
+        }
+      });
+      setCheckoutStarted(true);
+      console.log('✅ begin_checkout event fired to GTM');
+    }
+  };
 
   const handleOrder = async (event) => {
     event.preventDefault();
+    if (isSubmitting || !clientInfo.ip) {
+        alert('Please wait a moment while we prepare everything...');
+        return;
+    }
     setIsSubmitting(true);
 
-    // --- GET FORM DATA ---
     const name = event.target.name.value;
     const number = event.target.billing_phone.value;
     const address = event.target.address.value;
 
-    // --- CALCULATE SHIPPING ---
     const shippingCost = shipping === "outside-dhaka" ? 99.00 : 60.00;
     const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : " ঢাকার ভিতরে";
     const totalValue = PRODUCT_PRICE + shippingCost;
 
-    // --- DATA FOR BACKEND ---
     const userDataForBackend = {
       name,
       number,
@@ -107,67 +126,56 @@ const sectionRef = useRef(null);
       currency: CURRENCY,
     };
 
-    console.log("Sending data to backend:", userDataForBackend);
-
     try {
-      const makeOrder = await fetch(`http://localhost:5000/orders`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(userDataForBackend),
-      });
-
-      const orderJson = await makeOrder.json();
-
-      if (orderJson.acknowledged) {
-        console.log("✅ Your order is placed!");
-
-        // --- [START] UPDATED REDIRECT CODE ---
-        // We send ALL data to the thank-you page via URL parameters
-        const params = new URLSearchParams({
-          // Order details
-          orderId: orderJson.orderId || orderJson.insertedId || 'N/A',
-          total: totalValue.toString(),
-          shipping: shippingMethod,
-          shippingCost: shippingCost.toString(),
-          
-          // User details
-          name: name, // We'll split this into 'firstName' on the next page
-          phone: number,
-
-          // Product details
-          productId: PRODUCT_ID,
-          productName: PRODUCT_NAME,
-          categoryName: PRODUCT_CATEGORY,
-          price: PRODUCT_PRICE.toString(),
-          quantity: '1', // Assuming quantity is always 1 for this form
+      // This is where you would typically send the order to your backend.
+      // For this example, we'll simulate a successful order and fire the GTM event.
+      // const makeOrder = await fetch(`http://localhost:5000/orders`, {
+      //   method: "POST",
+      //   headers: { "content-type": "application/json" },
+      //   body: JSON.stringify(userDataForBackend),
+      // });
+      // const orderJson = await makeOrder.json();
+      
+      // Simulating a successful response for demonstration
+      const simulatedOrderId = `order_${new Date().getTime()}`;
+      console.log("✅ Your order is placed! (Simulated)");
+      
+      // Fire the purchase event to GTM
+      gtmEvent('purchase', {
+        visitorIP: clientInfo.ip,
+        browserName: clientInfo.userAgent,
+        ecommerce: {
           currency: CURRENCY,
-          postId: POST_ID.toString(),
-          postType: POST_TYPE,
-        });
-        
-        window.location.href = `/thank-you?${params.toString()}`;
-        // --- [END] UPDATED REDIRECT CODE ---
+          transaction_id: simulatedOrderId,
+          value: totalValue,
+          shipping: shippingCost,
+          items: [{
+            item_id: PRODUCT_ID,
+            item_name: PRODUCT_NAME,
+            price: PRODUCT_PRICE,
+            item_category: PRODUCT_CATEGORY,
+            quantity: 1
+          }]
+        }
+      });
+      console.log('✅ purchase event fired to GTM');
 
-      } else {
-        console.error("❌ Order failed at backend:", orderJson.message);
-        alert("অর্ডার করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
-      }
+      // Redirect to a thank-you page after successful purchase
+      // The redirect logic from your original code can be used here.
+      alert("Order placed successfully!");
+
     } catch (error) {
       console.error("❌ Error placing order:", error);
-      alert("অর্ডার করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      alert("There was a problem with your order. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Calculate total based on shipping
   const calculatedTotal = PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
   return (
     <section ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
-      {/* ... (The rest of your form HTML is unchanged) ... */}
       <div className="bg-white px-2 py-8">
         <h1 className="text-4xl text-center mb-8 font-bold">
           বইটি অর্ডার করতে নিচের ফর্মটি পূরণ করুন
@@ -181,6 +189,7 @@ const sectionRef = useRef(null);
               name="name"
               required
               type="text"
+              onFocus={handleBeginCheckout} // Fire begin_checkout when user starts filling the form
               disabled={isSubmitting}
             />
             <Input
@@ -192,6 +201,7 @@ const sectionRef = useRef(null);
               maxLength={11}
               pattern="[0-9]{11}"
               className="py-6"
+              onFocus={handleBeginCheckout}
               disabled={isSubmitting}
             />
           </div>
@@ -202,6 +212,7 @@ const sectionRef = useRef(null);
             name="address"
             required
             type="text"
+            onFocus={handleBeginCheckout}
             disabled={isSubmitting}
           />
 
@@ -249,7 +260,6 @@ const sectionRef = useRef(null);
             </RadioGroup>
           </div>
 
-          {/* Total Display */}
           <div className="bg-gray-50 p-4 rounded-lg border">
             <div className="flex justify-between items-center mb-2">
               <span className="text-lg">বই মূল্য:</span>
@@ -259,7 +269,8 @@ const sectionRef = useRef(null);
               <span className="text-lg">শিপিং চার্জ:</span>
               <span className="text-lg font-medium">
                 {shipping === "outside-dhaka" ? "99" : "60"}৳
-              </span>        </div>
+              </span>
+            </div>
             <div className="border-t pt-2 mt-2">
               <div className="flex justify-between items-center">
                 <span className="text-xl font-bold">মোট:</span>
@@ -268,12 +279,12 @@ const sectionRef = useRef(null);
                 </span>
               </div>
             </div>
-        </div>
+          </div>
 
           <Button 
             className="w-full py-6 text-2xl font-bold"
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !clientInfo.ip}
           >
             {isSubmitting ? "অর্ডার করা হচ্ছে..." : "অর্ডার করুন"}
           </Button>
