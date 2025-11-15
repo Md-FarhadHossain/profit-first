@@ -1,4 +1,5 @@
 import React from "react";
+import OrderNowBtn from "./orderNowBtn";
 
 const WhatsInside = () => {
       const featureData = [
@@ -85,6 +86,7 @@ const WhatsInside = () => {
             ))}
           </div>
         </div>
+        <OrderNowBtn />
       </div>
     </>
   );

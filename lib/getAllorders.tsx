@@ -1,6 +1,6 @@
 export default async function getAllOrders() {
   const result = await fetch(
-    "http://localhost:5000/orders"
+    "https://profit-first-server.vercel.app/orders"
   );
   return result.json();
 }

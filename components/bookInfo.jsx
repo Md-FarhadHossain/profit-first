@@ -26,6 +26,7 @@ const BookInfo = () => {
     <>
       <header>
         <Image
+        className="border mt-1"
           src={bookCover}
           alt="Profit First for F-commerce business in Bangladesh book"
         />
@@ -35,14 +36,14 @@ const BookInfo = () => {
 
         <div>
           <h1 className="text-4xl font-semibold">
-            প্রফিট ফার্স্ট ফর এফ-কমার্স বিসনেস ইন বাংলাদেশ
+            প্রফিট ফার্স্ট ফর এফ-কমার্স বিজনেস ইন বাংলাদেশ <span className="text-blue-600">(হার্ড কভার)</span>
           </h1>
         </div>
         <div className="border-t border-gray-300 text-xl py-4 mt-4">
-          <p>
+          {/* <p>
             ফেইসবুক ব্যবসার ডেটা ভিত্তিক সকল সমস্যার সমাধান নিয়ে বাংলাদেশের
             প্রথম ও একমাত্র বই প্রফিট ফার্স্ট ফর এফ-কমার্স
-          </p>
+          </p> */}
         </div>
 
         <div className="my-4">

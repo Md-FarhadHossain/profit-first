@@ -1,4 +1,6 @@
 import React from "react";
+import OrderNowBtn from "./orderNowBtn";
+import BlueOrderNowBtn from "./blueOrderNowBtn";
 
 const BookVideo = () => {
   return (
@@ -20,7 +22,10 @@ const BookVideo = () => {
             />
           </div>
         </div>
+
+        <BlueOrderNowBtn />
       </div>
+
     </section>
   );
 };

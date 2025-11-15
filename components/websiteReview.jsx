@@ -1,11 +1,16 @@
 import ReviewCardPage from "../app/reviewCard/page"
+import OrderNowBtn from "./orderNowBtn";
 
 const WebsiteReview = () => {
   return (
-    <div>
+    <div className="mb-12">
       <div className="container mx-auto">
         <h1 className="text-4xl px-4 text-center mt-16 mb-4">আমাদের ওয়েবসাইটে যারা রিভিউ দিয়েছেন</h1>
         <ReviewCardPage />
+        
+      </div>
+      <div className="px-2">
+        <OrderNowBtn />
       </div>
     </div>
   );

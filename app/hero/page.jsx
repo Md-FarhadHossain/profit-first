@@ -138,64 +138,108 @@ const HeroSection = () => {
     }
   };
 
-const handleOrder = async (event) => {
-  event.preventDefault();
-  if (isSubmitting || !clientInfo.ip) {
-    alert("Please wait a moment while we prepare everything...");
-    return;
-  }
-  setIsSubmitting(true);
+  // --- MODIFIED ORDER HANDLER ---
+  const handleOrder = async (event) => {
+    event.preventDefault();
+    if (isSubmitting || !clientInfo.ip) {
+      alert("Please wait a moment while we prepare everything...");
+      return;
+    }
+    setIsSubmitting(true);
 
-  const name = event.target.name.value;
-  const number = event.target.billing_phone.value;
-  const address = event.target.address.value;
+    // 1. Gather all data from form and state
+    const name = event.target.name.value;
+    const number = event.target.billing_phone.value;
+    const address = event.target.address.value;
 
-  const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-  const shippingMethod =
-    shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
-  const totalValue = PRODUCT_PRICE + shippingCost;
+    const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
+    const shippingMethod =
+      shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
+      
+    const totalValue = PRODUCT_PRICE + shippingCost;
 
-  try {
-    const simulatedOrderId = `order_${new Date().getTime()}`;
-    console.log("✅ Your order is placed! (Simulated)");
-
-    // REMOVE THE GTM PURCHASE EVENT FROM HERE
-    /*
-    gtmEvent("purchase", {
-      visitorIP: clientInfo.ip,
-      browserName: clientInfo.userAgent,
-      ecommerce: {
-        // ... (event data)
+    // 2. Construct the data object for the API
+    const orderData = {
+      name,
+      number,
+      address,
+      shipping: shippingMethod,
+      shippingCost,
+      totalValue,
+      status: "Processing", // Initial status
+      items: [
+        {
+          item_id: PRODUCT_ID,
+          item_name: PRODUCT_NAME,
+          price: PRODUCT_PRICE,
+          item_category: PRODUCT_CATEGORY,
+          quantity: 1,
+        },
+      ],
+      clientInfo: {
+        ip: clientInfo.ip,
+        userAgent: clientInfo.userAgent,
       },
-    });
-    console.log("✅ purchase event fired to GTM");
-    */
-
-    const params = new URLSearchParams({
-      orderId: simulatedOrderId,
-      total: totalValue.toString(),
-      shippingCost: shippingCost.toString(),
       currency: CURRENCY,
-      productId: PRODUCT_ID,
-      productName: PRODUCT_NAME,
-      categoryName: PRODUCT_CATEGORY,
-      price: PRODUCT_PRICE.toString(),
-      quantity: "1",
-    });
+      postId: POST_ID.toString(),
+      postType: POST_TYPE,
+      createdAt: new Date().toISOString(), // Add timestamp
+    };
 
-    window.location.href = `/thank-you?${params.toString()}`;
-  } catch (error) {
-    console.error("❌ Error placing order:", error);
-    alert("There was a problem with your order. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    try {
+      // 3. POST data to your MongoDB server
+      const response = await fetch("https://profit-first-server.vercel.app/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        // Handle server-side errors
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to submit order.");
+      }
+
+      // 4. Get the new order data from the response
+      const result = await response.json();
+      
+      // Get the real Order ID from the server response.
+      // Adjust this based on your actual server response structure.
+      const newOrderId = result.orderId || result._id || result.insertedId || `db_${new Date().getTime()}`;
+
+      console.log("✅ Order posted to server successfully:", result);
+
+      // 5. If successful, redirect to Thank You page with REAL data
+      const params = new URLSearchParams({
+        orderId: newOrderId, // Use the REAL order ID from server
+        total: totalValue.toString(),
+        shippingCost: shippingCost.toString(),
+        currency: CURRENCY,
+        productId: PRODUCT_ID,
+        productName: PRODUCT_NAME,
+        categoryName: PRODUCT_CATEGORY,
+        price: PRODUCT_PRICE.toString(),
+        quantity: "1",
+      });
+
+      window.location.href = `/thank-you?${params.toString()}`;
+
+    } catch (error) {
+      console.error("❌ Error placing order:", error);
+      alert("There was a problem with your order. Please try again. " + error.message);
+    } finally {
+      // 6. Re-enable the button
+      setIsSubmitting(false);
+    }
+  };
+  
   const calculatedTotal =
     PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
   return (
-    <section ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
+    <section id="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
       <div className="bg-white px-2 py-8">
         <h1 className="text-4xl text-center mb-8 font-bold">
           বইটি অর্ডার করতে নিচের ফর্মটি পূরণ করুন
