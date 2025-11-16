@@ -13,7 +13,7 @@ const BookVideo = () => {
             {/* 16:9 aspect ratio */}
             <iframe
               className="absolute top-0 left-0 w-full h-full rounded-xl"
-              src="https://www.youtube.com/embed/QHajRDjjER4?si=ve5cDldP_bgSxy-u"
+              src="https://www.youtube.com/embed/EsRVaQWe-aU"
               title="YouTube video player"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -25,7 +25,6 @@ const BookVideo = () => {
 
         <BlueOrderNowBtn />
       </div>
-
     </section>
   );
 };
