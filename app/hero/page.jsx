@@ -256,7 +256,20 @@ const HeroSection = () => {
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
             />
- 
+            <Input
+              placeholder="Number (মোবাইল নম্বর)"
+              name="billing_phone"
+              required
+              type="tel"
+              minLength={11}
+              // maxLength={11}
+              pattern="[0-9]{11}"
+              className="py-6"
+              onFocus={handleBeginCheckout}
+              disabled={isSubmitting}
+              autoComplete="tel"
+            />
+          </div>
 
           <Input
             className="py-6"
@@ -267,21 +280,9 @@ const HeroSection = () => {
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
             autoComplete="billing_address_1"
+            aria-required="true"
           />
-           <Input
-              placeholder="Number (মোবাইল নম্বর)"
-              name="billing_phone"
-              required
-              type="tel"
-              minLength={11}
-              maxLength={11}
-              pattern="[0-9]{11}"
-              className="py-6"
-              onFocus={handleBeginCheckout}
-              disabled={isSubmitting}
-              autoComplete="tel"
-            />
-          </div>
+
           <div className="w-full">
             <h2 className="text-2xl font-semibold mb-4">
               Shipping (শিপিং চার্জ)
