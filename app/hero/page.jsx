@@ -279,7 +279,7 @@ const HeroSection = () => {
             type="text"
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
-            autoComplete="address"
+            autoComplete="billing_address_1"
           />
 
           <div className="w-full">
