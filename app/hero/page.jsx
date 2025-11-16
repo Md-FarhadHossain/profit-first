@@ -356,7 +356,7 @@ const HeroSection = () => {
             type="submit"
             disabled={isSubmitting || !clientInfo.ip}
           >
-            {isSubmitting ? "অর্ডার করা হচ্ছে..." : "অর্ডার করুন"}
+            {isSubmitting ? "অর্ডার করা হচ্ছে..." : `অর্ডার করুন ${calculatedTotal}৳`}
           </Button>
         </form>
 
