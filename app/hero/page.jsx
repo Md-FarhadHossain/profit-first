@@ -260,7 +260,7 @@ const HeroSection = () => {
               placeholder="Number (মোবাইল নম্বর)"
               name="billing_phone"
               required
-              type="tel"
+              type="number"
               minLength={11}
               maxLength={11}
               pattern="[0-9]{11}"

@@ -243,3 +243,7 @@
 button:active .animate-ripple-origin {
   animation: ripple-origin 0.6s ease-out;
 }
+
+section#read {
+  scroll-margin-top: -1110px; /* Adjust based on your header height */
+}

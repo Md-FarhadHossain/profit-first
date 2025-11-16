@@ -38,8 +38,8 @@ const HeaderSection = () => {
       <GetsTheBook />
 
       <ReaderSaid />
-        <PageSwiper />
       <WebsiteReview />
+        <PageSwiper />
         {/* <FreeGift /> */}
 
 
