@@ -95,7 +95,7 @@ function ThankYouContent() {
         </p>
 
         {/* Order Details */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3 mb-2">
           {/* {displayOrderId && (
             <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
               <p className="text-sm text-gray-500 mb-1">অর্ডার নম্বর</p>
@@ -105,7 +105,7 @@ function ThankYouContent() {
 
           {displayTotal && (
             <div className="bg-linear-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-              <p className="text-sm text-gray-500 mb-1">মোট মূল্য</p>
+              <p className=" text-gray-500 mb-1">মোট মূল্য</p>
               <p className="text-2xl font-bold text-green-600">
                 {displayTotal}৳
               </p>
@@ -114,7 +114,7 @@ function ThankYouContent() {
         </div>
 
         {/* Delivery Info */}
-        <div className="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-100">
+        <div className="bg-blue-50 rounded-xl p-4 mb-2 border border-blue-100">
           <p className="text-gray-700 font-medium mb-3 text-center">
             আমরা শীঘ্রই আপনার সাথে যোগাযোগ করব।
           </p>
@@ -131,7 +131,7 @@ function ThankYouContent() {
         </div>
 
         {/* Facebook Community Section - NEW */}
-        <div className="bg-linear-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 text-white relative overflow-hidden">
+        <div className="bg-linear-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-2 text-white relative overflow-hidden">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-10">
             <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -171,7 +171,7 @@ function ThankYouContent() {
               আমাদের কমিউনিটিতে যোগ দিন! 🌟
             </h3>
 
-            <p className="text-blue-100 text-center text-sm mb-4">
+            <p className="text-blue-100 text-center text- mb-4">
               বিশেষ অফার, টিপস এবং আপডেট পেতে আমাদের Facebook কমিউনিটির সদস্য হন
             </p>
 
