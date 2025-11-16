@@ -150,7 +150,7 @@ const HeroSection = () => {
     // 1. Gather all data from form and state
     const name = event.target.name.value;
     const number = event.target.billing_phone.value;
-    const address = event.target.address.value;
+    const address = event.target.billing_address_1.value;
 
     const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
     const shippingMethod =
@@ -267,14 +267,14 @@ const HeroSection = () => {
               className="py-6"
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
-              autocomplete="tel"
+              autoComplete="tel"
             />
           </div>
 
           <Input
             className="py-6"
             placeholder="Address (সম্পূর্ণ ঠিকানা)"
-            name="address"
+            name="billing_address_1"
             required
             type="text"
             onFocus={handleBeginCheckout}
