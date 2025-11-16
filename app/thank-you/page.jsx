@@ -61,7 +61,7 @@ function ThankYouContent() {
   const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/YOUR_GROUP_ID';
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
         {/* Success Icon */}
         <div className="mb-6 relative">
@@ -94,15 +94,15 @@ function ThankYouContent() {
         
         {/* Order Details */}
         <div className="space-y-3 mb-6">
-          {displayOrderId && (
-            <div className="bg-linear-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+          {/* {displayOrderId && (
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
               <p className="text-sm text-gray-500 mb-1">অর্ডার নম্বর</p>
               <p className="text-2xl font-bold text-gray-800">#{displayOrderId}</p>
             </div>
-          )}
+          )} */}
           
           {displayTotal && (
-            <div className="bg-linear-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
               <p className="text-sm text-gray-500 mb-1">মোট মূল্য</p>
               <p className="text-2xl font-bold text-green-600">{displayTotal}৳</p>
             </div>
@@ -127,7 +127,7 @@ function ThankYouContent() {
         </div>
 
         {/* Facebook Community Section - NEW */}
-        <div className="bg-linear-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 text-white relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 text-white relative overflow-hidden">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-10">
             <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -155,7 +155,7 @@ function ThankYouContent() {
             </p>
             
             <a
-              href="https://www.facebook.com/groups/facebook.uddokta"
+              href={FACEBOOK_GROUP_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full bg-white text-blue-600 font-bold py-3 px-6 rounded-lg hover:bg-blue-50 transition-all duration-300 text-center shadow-lg hover:shadow-xl transform hover:scale-105"
