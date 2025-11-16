@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import React from 'react';
 
 /**
@@ -6,7 +7,7 @@ import React from 'react';
  */
 const OrderNowBtn = () => {
   return (
-    <a href='#order' className="relative inline-block w-full mt-4">
+    <Link href='#order' className="relative inline-block w-full mt-4">
       {/* Pulsing glow effect */}
       <div className="absolute inset-0 bg-linear-to-r from-red-500 via-red-600 to-orange-500 rounded-lg blur-md opacity-75 animate-pulse"></div>
       
@@ -89,7 +90,7 @@ const OrderNowBtn = () => {
           background-size: 200% 200%;
         }
       `}</style>
-    </a>
+    </Link>
   );
 };
 

@@ -239,7 +239,7 @@ const HeroSection = () => {
     PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
   return (
-    <section id="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
+    <section id="order" name="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
       <div className="bg-white px-2 py-8">
         <h1 className="text-4xl text-center mb-8 font-bold">
           বইটি অর্ডার করতে নিচের ফর্মটি পূরণ করুন

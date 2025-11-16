@@ -15,10 +15,15 @@ import FreeGift from "@/components/freeGift"
 import HeroSction from "../hero/page";
 import PageSwiper from "@/components/PageSwiper";
 
+import Navbar from "@/components/Navbar"
+
+
 const HeaderSection = () => {
   return (
     <section className="overflow-x-hidden">
       <div className="container mx-auto px-4">
+   {/* <Navbar /> */}
+      
         <TopHeader />
         {/* <AniOrderNowBtn />   */}
         <BookInfo />
