@@ -260,13 +260,14 @@ const HeroSection = () => {
               placeholder="Number (মোবাইল নম্বর)"
               name="billing_phone"
               required
-              type="number"
+              type="tel"
               minLength={11}
               maxLength={11}
               pattern="[0-9]{11}"
               className="py-6"
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
+              autocomplete="tel"
             />
           </div>
 
@@ -278,6 +279,7 @@ const HeroSection = () => {
             type="text"
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
+            autoComplete="address"
           />
 
           <div className="w-full">
