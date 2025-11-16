@@ -1,13 +1,9 @@
 "use client"
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, ChevronDown, Package, Truck, CheckCircle, CircleDot, MapPin, Clock } from 'lucide-react';
 import getAllOrders from '@/lib/getAllorders';
-
 const STATUSES = ['Processing', 'Packaged', 'Shipped', 'Delivered'];
-
 // --- Helper Components ---
-
 // Component for Status Badge
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -16,9 +12,7 @@ const StatusBadge = ({ status }) => {
     Shipped: { icon: <Truck size={14} />, color: 'bg-purple-600' },
     Delivered: { icon: <CheckCircle size={14} />, color: 'bg-green-600' },
   };
-
   const config = statusConfig[status] || statusConfig.Processing;
-
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium text-white ${config.color}`}>
       {config.icon}
@@ -26,7 +20,6 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
 // Component for Status Dropdown
 const StatusDropdown = ({ currentStatus, onStatusChange }) => {
   return (
@@ -46,7 +39,6 @@ const StatusDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
-
 // Helper function to determine location based on shipping cost
 const getShippingLocation = (shippingCost) => {
   if (shippingCost === 60) {
@@ -57,21 +49,17 @@ const getShippingLocation = (shippingCost) => {
     return { location: 'N/A', color: 'text-gray-400' };
   }
 };
-
 // Helper function to format the time elapsed since a given date
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'N/A';
-
   const date = new Date(dateString);
   const now = new Date();
   const seconds = Math.round((now - date) / 1000);
   
   if (isNaN(seconds) || seconds < 0) return 'Just now';
-
   const minutes = Math.round(seconds / 60);
   const hours = Math.round(minutes / 60);
   const days = Math.round(hours / 24);
-
   if (seconds < 60) {
     return `${seconds} sec ago`;
   } else if (minutes < 60) {
@@ -82,26 +70,26 @@ const formatTimeAgo = (dateString) => {
     return `${days} days ago`;
   }
 };
-
-
 // --- Main Dashboard Component ---
 export default function App() {
   const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState({
+    today: 0,
+    yesterday: 0,
+    thisMonth: 0
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
-
   // Set up a timer to update the current time every 60 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000); // Update every minute
-
     // Cleanup the interval when the component unmounts
     return () => clearInterval(timer);
   }, []);
-
   // Fetch orders from API
   useEffect(() => {
     const fetchOrders = async () => {
@@ -121,11 +109,37 @@ export default function App() {
         date: order.createdAt || new Date().toISOString() // Ensure a valid date for time ago calculation
       }));
       setOrders(transformedData);
+      
+      // Calculate statistics
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const todayOrders = transformedData.filter(order => {
+        const orderDate = new Date(order.date);
+        return orderDate >= today;
+      }).length;
+      
+      const yesterdayOrders = transformedData.filter(order => {
+        const orderDate = new Date(order.date);
+        return orderDate >= yesterday && orderDate < today;
+      }).length;
+      
+      const thisMonthOrders = transformedData.filter(order => {
+        const orderDate = new Date(order.date);
+        return orderDate >= startOfMonth;
+      }).length;
+      
+      setStats({
+        today: todayOrders,
+        yesterday: yesterdayOrders,
+        thisMonth: thisMonthOrders
+      });
     };
-
     fetchOrders();
   }, []);
-
   // Update order status
   const handleStatusChange = (orderId, newStatus) => {
     setOrders(prevOrders =>
@@ -134,7 +148,6 @@ export default function App() {
       )
     );
   };
-
   // Memoized filtering logic
   const filteredOrders = useMemo(() => {
     return orders.filter(order =>
@@ -143,7 +156,6 @@ export default function App() {
       order.id?.toString().includes(searchTerm)
     );
   }, [orders, searchTerm]);
-
   // Memoized pagination logic
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = useMemo(() => {
@@ -151,16 +163,13 @@ export default function App() {
     const end = start + itemsPerPage;
     return filteredOrders.slice(start, end);
   }, [filteredOrders, currentPage, itemsPerPage]);
-
   // Pagination handlers
   const nextPage = () => {
     setCurrentPage(prev => Math.min(prev + 1, totalPages));
   };
-
   const prevPage = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
   };
-
   // Handle items per page change
   const handleItemsPerPageChange = (e) => {
     setItemsPerPage(Number(e.target.value));
@@ -169,7 +178,6 @@ export default function App() {
   
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
-
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
       <style>{`
@@ -179,7 +187,23 @@ export default function App() {
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-white">Book Order Dashboard</h1>
       </header>
-
+      
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h3 className="text-gray-400 text-sm font-medium mb-1">Today's Orders</h3>
+          <p className="text-2xl font-bold text-white">{stats.today}</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h3 className="text-gray-400 text-sm font-medium mb-1">Yesterday's Orders</h3>
+          <p className="text-2xl font-bold text-white">{stats.yesterday}</p>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <h3 className="text-gray-400 text-sm font-medium mb-1">This Month's Orders</h3>
+          <p className="text-2xl font-bold text-white">{stats.thisMonth}</p>
+        </div>
+      </div>
+      
       {/* Controls: Search and Items per Page */}
       <div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Search Bar */}
@@ -212,7 +236,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
       {/* Orders Table */}
       <div className="overflow-x-auto rounded-lg border border-gray-700 bg-gray-800 shadow-lg">
         <table className="inter-font min-w-full divide-y divide-gray-700">
@@ -279,7 +302,6 @@ export default function App() {
           </tbody>
         </table>
       </div>
-
       {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="mt-4 flex flex-col md:flex-row items-center justify-between">
