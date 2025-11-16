@@ -31,7 +31,7 @@ const GetsTheBook = () => {
 
   ];
   return (
-    <section>
+    <section id="getsbook">
       <div className="mt-16 container mx-auto px-4">
         <div>
           <h1 className="text-4xl text-center mb-3">বইটি যারা হাতে পেয়েছেন:</h1>

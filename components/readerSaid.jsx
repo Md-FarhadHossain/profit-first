@@ -12,7 +12,7 @@ import BlueOrderNowBtn from "./blueOrderNowBtn";
 
 const ReaderSaid = () => {
   return (
-    <section>
+    <section id="readersaid">
       <div>
         <h1 className="text-4xl text-center px-4 mt-16 mb-6">আমাদের বইটি পরে যারা উপকৃত হয়েছেন</h1>
         <div className="flex w-fit">

@@ -21,7 +21,7 @@ import wp9 from "@/public/wp9.png"
 
 const Testimonials = () => {
   return (
-    <section className="mb-4 mt-16 text-center">
+    <section id="testimonials" className="mb-4 mt-16 text-center">
     <h1 className="text-4xl">বইটি পড়ার পর যা বলেছেন</h1>
       <div className="flex w-fit mt-5">
         <Image className="w-1/3 -rotate-7 shadow-xl" src={wp1} alt="ms01" />

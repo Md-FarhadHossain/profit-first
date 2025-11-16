@@ -65,7 +65,7 @@ const WhatsInside = () => {
   };
 
   return (
-    <>
+    <section id="whatInside">
       <div className="mt-16">
         <div className="max-w-3xl mx-auto">
           {/* Header Title */}
@@ -88,7 +88,7 @@ const WhatsInside = () => {
         </div>
         <OrderNowBtn />
       </div>
-    </>
+    </section>
   );
 };
 

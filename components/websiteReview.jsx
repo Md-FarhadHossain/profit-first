@@ -3,7 +3,7 @@ import OrderNowBtn from "./orderNowBtn";
 
 const WebsiteReview = () => {
   return (
-    <div className="mb-12">
+    <section id="websiteReview" className="mb-12">
       <div className="container mx-auto">
         <h1 className="text-4xl px-4 text-center mt-16 mb-4">আমাদের ওয়েবসাইটে যারা রিভিউ দিয়েছেন</h1>
         <ReviewCardPage />
@@ -12,7 +12,7 @@ const WebsiteReview = () => {
       <div className="px-2">
         <OrderNowBtn />
       </div>
-    </div>
+    </section>
   );
 };
 

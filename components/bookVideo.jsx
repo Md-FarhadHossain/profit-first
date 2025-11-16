@@ -4,7 +4,7 @@ import BlueOrderNowBtn from "./blueOrderNowBtn";
 
 const BookVideo = () => {
   return (
-    <section>
+    <section id="video">
       <div className="container mx-auto px-2">
         <div>
           <h1 className="text-4xl mt-10 mb-4 text-center">একনজরে দেখনে নিন</h1>

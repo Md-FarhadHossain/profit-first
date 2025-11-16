@@ -33,7 +33,7 @@ const AllReaders = () => {
   ];
 
   return (
-    <div>
+    <section id="allreaders">
            {/* Readers */}
         <div>
           <h1 className="text-4xl text-center mb-3 mt-9">আমাদের পাঠক গণ:</h1>
@@ -56,7 +56,7 @@ const AllReaders = () => {
           </div>
         </div>
         <OrderNowBtn />
-    </div>
+    </section>
   )
 }
 
