@@ -281,6 +281,7 @@ const HeroSection = () => {
             disabled={isSubmitting}
             autoComplete="billing_address_1"
             aria-required="true"
+            id="billing_address_1"
           />
 
           <div className="w-full">
