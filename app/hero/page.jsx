@@ -262,7 +262,7 @@ const HeroSection = () => {
               required
               type="tel"
               minLength={11}
-              // maxLength={11}
+              maxLength={11}
               pattern="[0-9]{11}"
               className="py-6"
               onFocus={handleBeginCheckout}
