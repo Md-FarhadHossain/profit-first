@@ -12,6 +12,7 @@ import AniOrderNowBtn from "@/components/aniBtn";
 import TopHeader from "@/components/topHeader";
 import FreeGift from "@/components/freeGift"
 import BottomInfo from "@/components/bottomInfo"
+import BookInside from "@/components/bookInside"
 
 import HeroSction from "../hero/page";
 import PageSwiper from "@/components/PageSwiper";
@@ -31,7 +32,9 @@ const HeaderSection = () => {
         {/* <AniOrderNowBtn />   */}
         <BookInfo />
         <AllReaders />
-        <WhatsInside />
+        <BookInside />
+        {/* <WhatsInside /> */}
+
       </div>
 
       <div>
