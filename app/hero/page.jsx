@@ -15,7 +15,7 @@ const gtmEvent = (eventName, eventData = {}) => {
 };
 
 // --- PRODUCT DETAILS ---
-const PRODUCT_PRICE = 590;
+const PRODUCT_PRICE = 490;
 const PRODUCT_ID = "973";
 const PRODUCT_NAME = "Profit First for F-Commerce";
 const PRODUCT_CATEGORY = "Books";

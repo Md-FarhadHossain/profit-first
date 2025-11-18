@@ -11,6 +11,7 @@ import OrderNowBtn from "@/components/orderNowBtn";
 import AniOrderNowBtn from "@/components/aniBtn";
 import TopHeader from "@/components/topHeader";
 import FreeGift from "@/components/freeGift"
+import BottomInfo from "@/components/bottomInfo"
 
 import HeroSction from "../hero/page";
 import PageSwiper from "@/components/PageSwiper";
@@ -23,8 +24,10 @@ const HeaderSection = () => {
     <section className="overflow-x-hidden">
       <div className="container mx-auto px-4">
    {/* <Navbar /> */}
+
+   <BottomInfo />
       
-        <TopHeader />
+        {/* <TopHeader /> */}
         {/* <AniOrderNowBtn />   */}
         <BookInfo />
         <AllReaders />
