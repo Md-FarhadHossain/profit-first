@@ -110,7 +110,7 @@ const BookInside = () => {
       {/* CTA Button */}
       <div className="mt-8 flex justify-center">
         <Link 
-          href="#checkout" 
+          href="#order" 
           className="flex items-center gap-2 bg-[#d97706] hover:bg-[#b45309] text-white text-xl font-bold py-4 px-8 rounded-full shadow-lg transform transition hover:scale-105 duration-200 animate-bounce-slight"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

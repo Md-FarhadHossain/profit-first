@@ -40,7 +40,7 @@ const HeaderSection = () => {
       <div>
         <Testimonials />
       </div>
-      <BookVideo />
+      {/* <BookVideo /> */}
       <GetsTheBook />
 
       <ReaderSaid />
