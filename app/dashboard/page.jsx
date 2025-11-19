@@ -3,30 +3,26 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, 
   Package, Truck, CheckCircle, CircleDot, MapPin, Clock,
-  XCircle, RotateCcw // Added new icons for Cancel and Return
+  XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign 
 } from 'lucide-react';
 import getAllOrders from '@/lib/getAllorders';
 
-// Define the core status options based on your requirements
+// --- CONFIGURATION ---
 const ACTION_OPTIONS = [
   { label: 'Processing', value: 'Processing' },
-  { label: 'Shift', value: 'Shipped' },       // Display "Shift", save as "Shipped"
-  { label: 'Deliver it', value: 'Delivered' }, // Display "Deliver it", save as "Delivered"
+  { label: 'Shipped', value: 'Shipped' },
+  { label: 'Delivered', value: 'Delivered' },
   { label: 'Cancel', value: 'Cancelled' },
   { label: 'Return', value: 'Returned' }
 ];
 
-// --- Helper Components ---
+// --- HELPER COMPONENTS ---
 
-// Component for Status Badge
 const StatusBadge = ({ status }) => {
   const statusConfig = {
     Processing: { icon: <CircleDot size={14} />, color: 'bg-blue-600' },
-    // "Shift" maps to Shipped
     Shipped:    { icon: <Truck size={14} />, color: 'bg-purple-600' }, 
-    // "Deliver it" maps to Delivered
     Delivered:  { icon: <CheckCircle size={14} />, color: 'bg-green-600' },
-    // New actions
     Cancelled:  { icon: <XCircle size={14} />, color: 'bg-red-600' },
     Returned:   { icon: <RotateCcw size={14} />, color: 'bg-orange-600' },
   };
@@ -41,19 +37,23 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Component for Action Dropdown
 const ActionDropdown = ({ currentStatus, onStatusChange }) => {
+  const statusStyles = {
+    Shipped:   'border-purple-500/50 bg-purple-900/20 text-purple-200 focus:border-purple-500 focus:ring-purple-500',
+    Delivered: 'border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500',
+    Cancelled: 'border-red-500/50 bg-red-900/20 text-red-200 focus:border-red-500 focus:ring-red-500',
+    Returned:  'border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500',
+    Default:   'border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500'
+  };
+
+  const currentStyle = statusStyles[currentStatus] || statusStyles.Default;
+
   return (
     <div className="relative w-32">
       <select
         value={currentStatus}
         onChange={(e) => onStatusChange(e.target.value)}
-        className={`
-          appearance-none w-full rounded-md border py-1.5 pl-3 pr-8 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-gray-800
-          ${currentStatus === 'Cancelled' ? 'border-red-500/50 bg-red-900/20 text-red-200 focus:border-red-500 focus:ring-red-500' : 
-            currentStatus === 'Delivered' ? 'border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500' :
-            'border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500'}
-        `}
+        className={`appearance-none w-full rounded-md border py-1.5 pl-3 pr-8 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-gray-800 ${currentStyle}`}
       >
         {ACTION_OPTIONS.map((option) => (
           <option key={option.value} value={option.value} className="bg-gray-800 text-white">
@@ -61,12 +61,135 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
           </option>
         ))}
       </select>
-      <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      <ChevronDown size={14} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70 ${currentStatus === 'Processing' ? 'text-gray-400' : 'text-currentColor'}`} />
     </div>
   );
 };
 
-// Helper function to determine location based on shipping cost
+// --- NEW: ORDER DETAILS MODAL COMPONENT ---
+const OrderModal = ({ order, onClose }) => {
+  if (!order) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
+      {/* Click outside to close */}
+      <div className="absolute inset-0" onClick={onClose}></div>
+      
+      <div className="relative w-full max-w-2xl bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+              <Package className="text-blue-400" size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Order Details</h2>
+              <p className="text-sm text-blue-400 font-mono">#{order.orderId}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[80vh] overflow-y-auto">
+          
+          {/* Customer Section */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Information</h3>
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300">
+                  <User size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Full Name</p>
+                  <p className="font-medium text-white">{order.customer.name}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300">
+                  <Phone size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Phone Number</p>
+                  <p className="font-medium text-white">{order.customer.phone}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300">
+                  <Calendar size={16} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Order Date</p>
+                  <p className="font-medium text-white">{new Date(order.date).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Shipping Section */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery Details</h3>
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50 space-y-3 h-full">
+              <div>
+                <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
+                  <MapPin size={14} /> Address
+                </p>
+                <p className="text-sm text-white leading-relaxed">{order.address}</p>
+              </div>
+              <div className="pt-3 border-t border-gray-700/50 mt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-400">Method:</span>
+                  <span className="text-sm font-medium text-white px-2 py-0.5 bg-gray-700 rounded">{order.shippingMethod}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Section (Full Width) */}
+          <div className="md:col-span-2 space-y-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Summary</h3>
+            <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50">
+              <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                <span className="text-gray-400">Shipping Cost</span>
+                <span className="text-white font-mono">{order.shippingCost} ৳</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-700/50">
+                <span className="text-gray-400">Subtotal (approx)</span>
+                <span className="text-white font-mono">{order.totalValue - order.shippingCost} ৳</span>
+              </div>
+              <div className="flex justify-between items-center pt-3">
+                <span className="text-lg font-bold text-white">Total Amount</span>
+                <div className="flex items-center gap-2 text-xl font-bold text-green-400">
+                  <DollarSign size={20} />
+                  {order.totalValue} ৳
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer Actions */}
+        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center">
+           <div className="text-sm text-gray-500">Status: <StatusBadge status={order.status} /></div>
+           <button 
+             onClick={onClose}
+             className="px-4 py-2 bg-white text-gray-900 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+           >
+             Close Details
+           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// --- LOGIC HELPERS ---
 const getShippingLocation = (shippingCost) => {
   if (shippingCost === 60) {
     return { location: 'Inside Dhaka', color: 'text-green-400' };
@@ -77,7 +200,6 @@ const getShippingLocation = (shippingCost) => {
   }
 };
 
-// Helper function to format the time elapsed
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -95,26 +217,21 @@ const formatTimeAgo = (dateString) => {
   return `${days} days ago`;
 };
 
-// --- Main Dashboard Component ---
+// --- MAIN COMPONENT ---
 export default function App() {
   const [orders, setOrders] = useState([]);
-  const [stats, setStats] = useState({
-    today: 0,
-    yesterday: 0,
-    thisMonth: 0
-  });
+  const [selectedOrder, setSelectedOrder] = useState(null); // STATE FOR MODAL
+  const [stats, setStats] = useState({ today: 0, yesterday: 0, thisMonth: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Timer for real-time updates
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
       const data = await getAllOrders();
@@ -128,13 +245,13 @@ export default function App() {
         shippingMethod: order.shipping || 'N/A',
         shippingCost: order.shippingCost || 0,
         totalValue: order.totalValue || 0,
-        status: order.status || 'Processing', // Default status from DB
+        status: order.status || 'Processing',
         orderId: order.orderId,
         date: order.createdAt || new Date().toISOString() 
       }));
       setOrders(transformedData);
       
-      // Calculate Stats
+      // Calc Stats logic (same as before)
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today);
@@ -153,19 +270,26 @@ export default function App() {
     fetchOrders();
   }, []);
 
-  // Update order status
-  const handleStatusChange = (orderId, newStatus) => {
-    // Here you would typically make an API call to update the DB
-    // await updateOrderStatus(orderId, newStatus);
-    
+  const handleStatusChange = async (id, newStatus) => {
     setOrders(prevOrders =>
       prevOrders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
+        order.id === id ? { ...order, status: newStatus } : order
       )
     );
+
+    try {
+      const response = await fetch(`http://localhost:5000/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await response.json();
+      if (data.modifiedCount > 0) console.log("Status updated");
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
   };
 
-  // Filtering
   const filteredOrders = useMemo(() => {
     return orders.filter(order =>
       order.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -174,7 +298,6 @@ export default function App() {
     );
   }, [orders, searchTerm]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -183,14 +306,21 @@ export default function App() {
 
   const nextPage = () => setCurrentPage(p => Math.min(p + 1, totalPages));
   const prevPage = () => setCurrentPage(p => Math.max(p - 1, 1));
-
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
 
   return (
-    <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+    <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; }`}</style>
       
+      {/* --- RENDER MODAL IF SELECTED --- */}
+      {selectedOrder && (
+        <OrderModal 
+          order={selectedOrder} 
+          onClose={() => setSelectedOrder(null)} 
+        />
+      )}
+
       <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Book Order Dashboard</h1>
@@ -202,7 +332,6 @@ export default function App() {
         </div>
       </header>
       
-      {/* Stats Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
           { label: "Today's Orders", value: stats.today },
@@ -216,7 +345,6 @@ export default function App() {
         ))}
       </div>
       
-      {/* Controls */}
       <div className="mb-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
         <div className="relative w-full md:w-1/3">
           <input
@@ -246,13 +374,13 @@ export default function App() {
         </div>
       </div>
 
-      {/* Orders Table */}
       <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
           <table className="inter-font min-w-full divide-y divide-gray-700">
             <thead className="bg-gray-900/50">
               <tr>
-                {['Order ID', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Action'].map((head) => (
+                {/* Added 'View' Column */}
+                {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Action'].map((head) => (
                   <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
                     {head}
                   </th>
@@ -267,6 +395,17 @@ export default function App() {
                     <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
                       <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
                       
+                      {/* NEW VIEW COLUMN */}
+                      <td className="whitespace-nowrap py-4 px-4">
+                        <button 
+                          onClick={() => setSelectedOrder(order)}
+                          className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                          title="View Details"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </td>
+
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
                         <div className="font-medium text-white">{order.customer?.name}</div>
                         <div className="text-xs text-gray-400 mt-0.5">{order.customer?.phone}</div>
@@ -310,7 +449,7 @@ export default function App() {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="py-12 text-center">
+                  <td colSpan="9" className="py-12 text-center">
                     <Package size={48} className="mx-auto text-gray-600 mb-3" />
                     <p className="text-gray-400 text-lg">No orders found matching your criteria.</p>
                   </td>
