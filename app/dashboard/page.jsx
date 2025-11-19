@@ -106,6 +106,7 @@ export default function App() {
         shippingCost: order.shippingCost || 0,
         totalValue: order.totalValue || 0,
         status: order.status || 'Processing',
+        orderId: order.orderId,
         date: order.createdAt || new Date().toISOString() // Ensure a valid date for time ago calculation
       }));
       setOrders(transformedData);
@@ -257,7 +258,7 @@ export default function App() {
                 const { location, color } = getShippingLocation(order.shippingCost);
                 return (
                   <tr key={order.id} className="hover:bg-gray-700/50">
-                    <td className="whitespace-nowrap py-4 px-4 text-sm font-medium text-white">#{order.id}</td>
+                    <td className="whitespace-nowrap py-4 px-4 text-sm font-medium text-white">#{order.orderId}</td>
                     <td className="whitespace-nowrap py-4 px-4 text-sm">
                       <div className="font-medium text-white">{order.customer?.name || 'N/A'}</div>
                       <div className="text-gray-400">{order.customer?.phone || 'N/A'}</div>

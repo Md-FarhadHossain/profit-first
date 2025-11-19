@@ -139,81 +139,67 @@ const HeroSection = () => {
   };
 
   // --- MODIFIED ORDER HANDLER ---
-  const handleOrder = async (event) => {
+const handleOrder = async (event) => {
     event.preventDefault();
-    if (isSubmitting || !clientInfo.ip) {
-      alert("Please wait a moment while we prepare everything...");
-      return;
-    }
+    if (isSubmitting) return;
+
     setIsSubmitting(true);
 
-    // 1. Gather all data from form and state
-    const name = event.target.name.value;
-    const number = event.target.billing_phone.value;
-    const address = event.target.billing_address_1.value;
-
-    const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-    const shippingMethod =
-      shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
-      
-    const totalValue = PRODUCT_PRICE + shippingCost;
-
-    // 2. Construct the data object for the API
-    const orderData = {
-      name,
-      number,
-      address,
-      shipping: shippingMethod,
-      shippingCost,
-      totalValue,
-      status: "Processing", // Initial status
-      items: [
-        {
-          item_id: PRODUCT_ID,
-          item_name: PRODUCT_NAME,
-          price: PRODUCT_PRICE,
-          item_category: PRODUCT_CATEGORY,
-          quantity: 1,
-        },
-      ],
-      clientInfo: {
-        ip: clientInfo.ip,
-        userAgent: clientInfo.userAgent,
-      },
-      currency: CURRENCY,
-      postId: POST_ID.toString(),
-      postType: POST_TYPE,
-      createdAt: new Date().toISOString(), // Add timestamp
-    };
-
     try {
-      // 3. POST data to your MongoDB server
+      // 1. Gather Form Data
+      const name = event.target.name.value;
+      const number = event.target.billing_phone.value;
+      const address = event.target.billing_address_1.value;
+      const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
+      const shippingMethod = shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
+      const totalValue = PRODUCT_PRICE + shippingCost;
+
+      const orderData = {
+        // orderId:  <-- WE REMOVED THIS. The backend will add it.
+        name,
+        number,
+        address,
+        shipping: shippingMethod,
+        shippingCost,
+        totalValue,
+        status: "Processing",
+        items: [
+          {
+            item_id: PRODUCT_ID,
+            item_name: PRODUCT_NAME,
+            price: PRODUCT_PRICE,
+            item_category: PRODUCT_CATEGORY,
+            quantity: 1,
+          },
+        ],
+        clientInfo: {
+          ip: clientInfo.ip,
+          userAgent: clientInfo.userAgent,
+        },
+        currency: CURRENCY,
+        postId: POST_ID.toString(),
+        postType: POST_TYPE,
+        // createdAt will be added by backend
+      };
+
+      // 2. POST to Server
       const response = await fetch("https://profit-first-server.vercel.app/orders", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderData),
       });
 
-      if (!response.ok) {
-        // Handle server-side errors
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit order.");
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error("Failed to submit order.");
       }
 
-      // 4. Get the new order data from the response
-      const result = await response.json();
-      
-      // Get the real Order ID from the server response.
-      // Adjust this based on your actual server response structure.
-      const newOrderId = result.orderId || result._id || result.insertedId || `db_${new Date().getTime()}`;
+      console.log("✅ Order Success. ID received from server:", result.orderId);
 
-      console.log("✅ Order posted to server successfully:", result);
-
-      // 5. If successful, redirect to Thank You page with REAL data
+      // 3. Redirect using the ID received from the server
       const params = new URLSearchParams({
-        orderId: newOrderId, // Use the REAL order ID from server
+        orderId: result.orderId.toString(), // <--- USES THE ID FROM BACKEND
         total: totalValue.toString(),
         shippingCost: shippingCost.toString(),
         currency: CURRENCY,
@@ -228,9 +214,8 @@ const HeroSection = () => {
 
     } catch (error) {
       console.error("❌ Error placing order:", error);
-      alert("There was a problem with your order. Please try again. " + error.message);
+      alert("Order Failed: " + error.message);
     } finally {
-      // 6. Re-enable the button
       setIsSubmitting(false);
     }
   };
