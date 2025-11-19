@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, 
   Package, Truck, CheckCircle, CircleDot, MapPin, Clock,
-  XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign 
+  XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign,
+  PhoneCall, PhoneOff, Check
 } from 'lucide-react';
 import getAllOrders from '@/lib/getAllorders';
 
@@ -16,8 +17,14 @@ const ACTION_OPTIONS = [
   { label: 'Return', value: 'Returned' }
 ];
 
-// --- HELPER COMPONENTS ---
+// --- CALL STATUS CONFIGURATION ---
+const CALL_OPTIONS = [
+  { label: 'Pending', value: 'Pending' },
+  { label: 'Confirmed', value: 'Confirmed' }, 
+  { label: 'No Answer', value: 'No Answer' },
+];
 
+// --- HELPER COMPONENTS ---
 const StatusBadge = ({ status }) => {
   const statusConfig = {
     Processing: { icon: <CircleDot size={14} />, color: 'bg-blue-600' },
@@ -26,14 +33,46 @@ const StatusBadge = ({ status }) => {
     Cancelled:  { icon: <XCircle size={14} />, color: 'bg-red-600' },
     Returned:   { icon: <RotateCcw size={14} />, color: 'bg-orange-600' },
   };
-
   const config = statusConfig[status] || statusConfig.Processing;
-
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white ${config.color} shadow-sm`}>
       {config.icon}
       {status}
     </span>
+  );
+};
+
+const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
+  const statusStyles = {
+    Confirmed: 'border-green-500/50 bg-green-500/20 text-green-200 focus:border-green-500',
+    'No Answer': 'border-red-500/50 bg-red-500/20 text-red-200 focus:border-red-500',
+    'Pending': 'border-yellow-500/50 bg-yellow-500/20 text-yellow-200 focus:border-yellow-500'
+  };
+  const currentStyle = statusStyles[currentStatus] || statusStyles['Pending'];
+
+  const getIcon = () => {
+    if (currentStatus === 'Confirmed') return <Check size={12} />;
+    if (currentStatus === 'No Answer') return <PhoneOff size={12} />;
+    return <PhoneCall size={12} />;
+  };
+
+  return (
+    <div className="relative w-36"> 
+      <select
+        value={currentStatus}
+        onChange={(e) => onStatusChange(e.target.value)}
+        className={`appearance-none w-full rounded-md border py-1.5 pl-8 pr-2 text-xs font-medium shadow-sm focus:outline-none focus:ring-1 ${currentStyle} transition-colors cursor-pointer`}
+      >
+        {CALL_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value} className="bg-gray-800 text-white">
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <div className={`pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 opacity-80 text-currentColor`}>
+        {getIcon()}
+      </div>
+    </div>
   );
 };
 
@@ -45,11 +84,9 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
     Returned:  'border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500',
     Default:   'border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500'
   };
-
   const currentStyle = statusStyles[currentStatus] || statusStyles.Default;
-
   return (
-    <div className="relative w-32">
+    <div className="relative w-36">
       <select
         value={currentStatus}
         onChange={(e) => onStatusChange(e.target.value)}
@@ -66,25 +103,25 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
   );
 };
 
-// --- NEW: ORDER DETAILS MODAL COMPONENT ---
-const OrderModal = ({ order, onClose }) => {
+// --- UPDATED ORDER MODAL ---
+const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
   if (!order) return null;
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
-      {/* Click outside to close */}
       <div className="absolute inset-0" onClick={onClose}></div>
-      
-      <div className="relative w-full max-w-2xl bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="relative w-full max-w-2xl bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
               <Package className="text-blue-400" size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Order Details</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white">Order Details</h2>
+                <StatusBadge status={order.status} />
+              </div>
               <p className="text-sm text-blue-400 font-mono">#{order.orderId}</p>
             </div>
           </div>
@@ -94,50 +131,31 @@ const OrderModal = ({ order, onClose }) => {
         </div>
 
         {/* Body */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[80vh] overflow-y-auto">
-          
-          {/* Customer Section */}
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+          {/* Customer Info */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer Information</h3>
             <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300">
-                  <User size={16} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Full Name</p>
-                  <p className="font-medium text-white">{order.customer.name}</p>
-                </div>
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300"><User size={16} /></div>
+                <div><p className="text-sm text-gray-400">Full Name</p><p className="font-medium text-white">{order.customer.name}</p></div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300">
-                  <Phone size={16} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Phone Number</p>
-                  <p className="font-medium text-white">{order.customer.phone}</p>
-                </div>
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300"><Phone size={16} /></div>
+                <div><p className="text-sm text-gray-400">Phone Number</p><p className="font-medium text-white">{order.customer.phone}</p></div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300">
-                  <Calendar size={16} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Order Date</p>
-                  <p className="font-medium text-white">{new Date(order.date).toLocaleString()}</p>
-                </div>
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-300"><Calendar size={16} /></div>
+                <div><p className="text-sm text-gray-400">Order Date</p><p className="font-medium text-white">{new Date(order.date).toLocaleString()}</p></div>
               </div>
             </div>
           </div>
-
-          {/* Shipping Section */}
+          {/* Delivery Details */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery Details</h3>
             <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50 space-y-3 h-full">
               <div>
-                <p className="text-sm text-gray-400 mb-1 flex items-center gap-2">
-                  <MapPin size={14} /> Address
-                </p>
+                <p className="text-sm text-gray-400 mb-1 flex items-center gap-2"><MapPin size={14} /> Address</p>
                 <p className="text-sm text-white leading-relaxed">{order.address}</p>
               </div>
               <div className="pt-3 border-t border-gray-700/50 mt-3">
@@ -148,8 +166,7 @@ const OrderModal = ({ order, onClose }) => {
               </div>
             </div>
           </div>
-
-          {/* Summary Section (Full Width) */}
+          {/* Payment Summary */}
           <div className="md:col-span-2 space-y-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Summary</h3>
             <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-700/50">
@@ -170,34 +187,40 @@ const OrderModal = ({ order, onClose }) => {
               </div>
             </div>
           </div>
-
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 flex justify-between items-center">
-           <div className="text-sm text-gray-500">Status: <StatusBadge status={order.status} /></div>
-           <button 
-             onClick={onClose}
-             className="px-4 py-2 bg-white text-gray-900 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
-           >
-             Close Details
-           </button>
+        {/* Footer: Action Buttons */}
+        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 flex-shrink-0">
+           <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4">
+              <button onClick={onClose} className="px-4 py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-700 hover:text-white transition-colors">
+                Close
+              </button>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Call Status Control */}
+                <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-lg border border-gray-700/50">
+                   <span className="text-xs font-medium text-gray-400 pl-1">Call:</span>
+                   <CallStatusDropdown currentStatus={order.callStatus} onStatusChange={onCallStatusChange} />
+                </div>
+
+                {/* Order Action Control */}
+                <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-lg border border-gray-700/50">
+                   <span className="text-xs font-medium text-gray-400 pl-1">Order:</span>
+                   <ActionDropdown currentStatus={order.status} onStatusChange={onStatusChange} />
+                </div>
+              </div>
+           </div>
         </div>
       </div>
     </div>
   );
 };
 
-
 // --- LOGIC HELPERS ---
 const getShippingLocation = (shippingCost) => {
-  if (shippingCost === 60) {
-    return { location: 'Inside Dhaka', color: 'text-green-400' };
-  } else if (shippingCost === 99) {
-    return { location: 'Outside Dhaka', color: 'text-orange-400' };
-  } else {
-    return { location: 'N/A', color: 'text-gray-400' };
-  }
+  if (shippingCost === 60) return { location: 'Inside Dhaka', color: 'text-green-400' };
+  if (shippingCost === 99) return { location: 'Outside Dhaka', color: 'text-orange-400' };
+  return { location: 'N/A', color: 'text-gray-400' };
 };
 
 const formatTimeAgo = (dateString) => {
@@ -220,7 +243,7 @@ const formatTimeAgo = (dateString) => {
 // --- MAIN COMPONENT ---
 export default function App() {
   const [orders, setOrders] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null); // STATE FOR MODAL
+  const [selectedOrder, setSelectedOrder] = useState(null); 
   const [stats, setStats] = useState({ today: 0, yesterday: 0, thisMonth: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -237,21 +260,18 @@ export default function App() {
       const data = await getAllOrders();
       const transformedData = data.map((order, index) => ({
         id: order._id || index,
-        customer: {
-          name: order.name || 'N/A',
-          phone: order.number || 'N/A'
-        },
+        customer: { name: order.name || 'N/A', phone: order.number || 'N/A' },
         address: order.address || 'N/A',
         shippingMethod: order.shipping || 'N/A',
         shippingCost: order.shippingCost || 0,
         totalValue: order.totalValue || 0,
         status: order.status || 'Processing',
+        callStatus: order.phoneCallStatus || 'Pending', 
         orderId: order.orderId,
         date: order.createdAt || new Date().toISOString() 
       }));
       setOrders(transformedData);
       
-      // Calc Stats logic (same as before)
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today);
@@ -260,33 +280,58 @@ export default function App() {
       
       setStats({
         today: transformedData.filter(o => new Date(o.date) >= today).length,
-        yesterday: transformedData.filter(o => {
-          const d = new Date(o.date);
-          return d >= yesterday && d < today;
-        }).length,
+        yesterday: transformedData.filter(o => { const d = new Date(o.date); return d >= yesterday && d < today; }).length,
         thisMonth: transformedData.filter(o => new Date(o.date) >= startOfMonth).length
       });
     };
     fetchOrders();
   }, []);
 
+  // --- ACTION HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
-    setOrders(prevOrders =>
-      prevOrders.map(order =>
-        order.id === id ? { ...order, status: newStatus } : order
-      )
-    );
+    // Update local state
+    setOrders(prevOrders => prevOrders.map(order => order.id === id ? { ...order, status: newStatus } : order));
+    // Also update the selectedOrder if it's currently open so the modal reflects the change immediately
+    if (selectedOrder && selectedOrder.id === id) {
+        setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+    }
 
     try {
-      const response = await fetch(`http://localhost:5000/orders/${id}`, {
+      await fetch(`https://profit-first-server.vercel.app/orders/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      const data = await response.json();
-      if (data.modifiedCount > 0) console.log("Status updated");
     } catch (error) {
       console.error("Failed to update status:", error);
+    }
+  };
+
+  const handleCallStatusChange = async (id, newCallStatus) => {
+    // Update local state
+    setOrders(prevOrders =>
+      prevOrders.map(order =>
+        order.id === id ? { ...order, callStatus: newCallStatus } : order
+      )
+    );
+    // Also update selectedOrder
+    if (selectedOrder && selectedOrder.id === id) {
+        setSelectedOrder(prev => ({ ...prev, callStatus: newCallStatus }));
+    }
+
+    try {
+      const response = await fetch(`https://profit-first-server.vercel.app/orders/${id}/call-status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callStatus: newCallStatus }),
+      });
+      if (response.ok) {
+        console.log("Call status updated successfully");
+      } else {
+        console.error("Server responded with error");
+      }
+    } catch (error) {
+      console.error("Failed to update call status:", error);
     }
   };
 
@@ -313,11 +358,13 @@ export default function App() {
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; }`}</style>
       
-      {/* --- RENDER MODAL IF SELECTED --- */}
+      {/* Pass handlers to the modal */}
       {selectedOrder && (
         <OrderModal 
           order={selectedOrder} 
-          onClose={() => setSelectedOrder(null)} 
+          onClose={() => setSelectedOrder(null)}
+          onStatusChange={(val) => handleStatusChange(selectedOrder.id, val)}
+          onCallStatusChange={(val) => handleCallStatusChange(selectedOrder.id, val)}
         />
       )}
 
@@ -347,24 +394,15 @@ export default function App() {
       
       <div className="mb-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
         <div className="relative w-full md:w-1/3">
-          <input
-            type="text"
-            placeholder="Search orders..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
-          />
+          <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
         </div>
-        
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <label className="text-sm text-gray-400">Rows per page:</label>
           <div className="relative">
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
+            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
@@ -379,11 +417,8 @@ export default function App() {
           <table className="inter-font min-w-full divide-y divide-gray-700">
             <thead className="bg-gray-900/50">
               <tr>
-                {/* Added 'View' Column */}
-                {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Action'].map((head) => (
-                  <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    {head}
-                  </th>
+                {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Call', 'Action'].map((head) => (
+                  <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">{head}</th>
                 ))}
               </tr>
             </thead>
@@ -394,62 +429,40 @@ export default function App() {
                   return (
                     <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
                       <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
-                      
-                      {/* NEW VIEW COLUMN */}
                       <td className="whitespace-nowrap py-4 px-4">
-                        <button 
-                          onClick={() => setSelectedOrder(order)}
-                          className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                          title="View Details"
-                        >
+                        <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details">
                           <Eye size={18} />
                         </button>
                       </td>
-
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
                         <div className="font-medium text-white">{order.customer?.name}</div>
                         <div className="text-xs text-gray-400 mt-0.5">{order.customer?.phone}</div>
                       </td>
-                      
                       <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-400">
-                         <div className="flex items-center gap-1.5 text-xs bg-gray-900/50 px-2 py-1 rounded border border-gray-700 w-fit">
-                           <Clock size={12} />
-                           {formatTimeAgo(order.date)}
-                         </div>
+                         <div className="flex items-center gap-1.5 text-xs bg-gray-900/50 px-2 py-1 rounded border border-gray-700 w-fit"><Clock size={12} />{formatTimeAgo(order.date)}</div>
                       </td>
-                      
-                      <td className="py-4 px-4 text-sm text-gray-300 max-w-xs truncate" title={order.address}>
-                        {order.address}
-                      </td>
-                      
+                      <td className="py-4 px-4 text-sm text-gray-300 max-w-xs truncate" title={order.address}>{order.address}</td>
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
                         <div className="text-white font-medium">{order.shippingMethod}</div>
-                        <div className={`flex items-center gap-1 ${color} text-xs mt-1`}>
-                          <MapPin size={10} />
-                          {location} ({order.shippingCost}৳)
-                        </div>
+                        <div className={`flex items-center gap-1 ${color} text-xs mt-1`}><MapPin size={10} />{location} ({order.shippingCost}৳)</div>
                       </td>
+                      <td className="whitespace-nowrap py-4 px-4 text-sm font-bold text-white">{order.totalValue} ৳</td>
+                      <td className="whitespace-nowrap py-4 px-4 text-sm"><StatusBadge status={order.status} /></td>
                       
-                      <td className="whitespace-nowrap py-4 px-4 text-sm font-bold text-white">
-                        {order.totalValue} ৳
+                      {/* --- CALL STATUS DROPDOWN --- */}
+                      <td className="whitespace-nowrap py-4 px-4 text-sm">
+                         <CallStatusDropdown currentStatus={order.callStatus} onStatusChange={(val) => handleCallStatusChange(order.id, val)} />
                       </td>
                       
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
-                        <StatusBadge status={order.status} />
-                      </td>
-                      
-                      <td className="whitespace-nowrap py-4 px-4 text-sm">
-                        <ActionDropdown
-                          currentStatus={order.status}
-                          onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)}
-                        />
+                        <ActionDropdown currentStatus={order.status} onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)} />
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="9" className="py-12 text-center">
+                  <td colSpan="10" className="py-12 text-center">
                     <Package size={48} className="mx-auto text-gray-600 mb-3" />
                     <p className="text-gray-400 text-lg">No orders found matching your criteria.</p>
                   </td>
@@ -459,33 +472,13 @@ export default function App() {
           </table>
         </div>
       </div>
-      
-      {/* Footer Pagination */}
       {totalPages > 1 && (
         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <p className="text-gray-400">
-            Showing <span className="font-medium text-white">{startItem}</span> to <span className="font-medium text-white">{endItem}</span> of <span className="font-medium text-white">{filteredOrders.length}</span>
-          </p>
+          <p className="text-gray-400">Showing <span className="font-medium text-white">{startItem}</span> to <span className="font-medium text-white">{endItem}</span> of <span className="font-medium text-white">{filteredOrders.length}</span></p>
           <div className="flex items-center gap-2">
-            <button
-              onClick={prevPage}
-              disabled={currentPage === 1}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-600 bg-gray-800 py-2 px-4 font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft size={16} />
-              Prev
-            </button>
-            <span className="bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-600 font-mono">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              onClick={nextPage}
-              disabled={currentPage === totalPages}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-600 bg-gray-800 py-2 px-4 font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-              <ChevronRight size={16} />
-            </button>
+            <button onClick={prevPage} disabled={currentPage === 1} className="inline-flex items-center gap-1 rounded-lg border border-gray-600 bg-gray-800 py-2 px-4 font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={16} />Prev</button>
+            <span className="bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-600 font-mono">{currentPage} / {totalPages}</span>
+            <button onClick={nextPage} disabled={currentPage === totalPages} className="inline-flex items-center gap-1 rounded-lg border border-gray-600 bg-gray-800 py-2 px-4 font-medium text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Next<ChevronRight size={16} /></button>
           </div>
         </div>
       )}

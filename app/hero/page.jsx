@@ -151,7 +151,7 @@ const handleOrder = async (event) => {
       const number = event.target.billing_phone.value;
       const address = event.target.billing_address_1.value;
       const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-      const shippingMethod = shipping === "outside-dhaka" ? " ঢাকার বাহিরে" : " ঢাকার ভিতরে";
+      const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
       const totalValue = PRODUCT_PRICE + shippingCost;
 
       const orderData = {
@@ -163,6 +163,7 @@ const handleOrder = async (event) => {
         shippingCost,
         totalValue,
         status: "Processing",
+        phoneCallStatus: "Pending",
         items: [
           {
             item_id: PRODUCT_ID,
