@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import localFont from 'next/font/local'
 import Script from "next/script";
@@ -9,7 +9,7 @@ import Script from "next/script";
 
 
 const myFont = localFont({
-  src: '../public/ekkushe-lalshalu.ttf',
+  src: '../../public/ekkushe-lalshalu.ttf',
 })
 
 const geistSans = Geist({

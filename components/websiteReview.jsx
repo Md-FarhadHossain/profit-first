@@ -1,4 +1,5 @@
-import ReviewCardPage from "../app/reviewCard/page"
+// import ReviewCardPage from "../app/reviewCard/page"
+import ReviewCardPage from "../app/(landing-page)/reviewCard/page"
 import OrderNowBtn from "./orderNowBtn";
 
 const WebsiteReview = () => {

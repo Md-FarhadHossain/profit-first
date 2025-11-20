@@ -112,7 +112,7 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
       <div className="relative w-full max-w-2xl bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
               <Package className="text-blue-400" size={20} />
@@ -190,7 +190,7 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
         </div>
 
         {/* Footer: Action Buttons */}
-        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 flex-shrink-0">
+        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 shrink-0">
            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4">
               <button onClick={onClose} className="px-4 py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-700 hover:text-white transition-colors">
                 Close
