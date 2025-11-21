@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { XCircle, MessageCircle, Facebook } from "lucide-react"; // Ensure you have lucide-react installed
 
 // --- GTM HELPER FUNCTION ---
 const gtmEvent = (eventName, eventData = {}) => {
@@ -28,13 +29,16 @@ const HeroSection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
   const [clientInfo, setClientInfo] = useState({ ip: null, userAgent: null });
+  
+  // 🆕 New State for Duplicate Order Modal
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  
   const sectionRef = useRef(null);
-  const hasAddedToCart = useRef(false); // 🟢 Prevent multiple fires
+  const hasAddedToCart = useRef(false); 
 
-  // --- INITIAL DATA FETCHING (Client Info & View Item) ---
+  // --- INITIAL DATA FETCHING ---
   useEffect(() => {
     const ua = navigator.userAgent;
-
     const fetchIp = async () => {
       try {
         const response = await fetch("/api/ip");
@@ -51,35 +55,24 @@ const HeroSection = () => {
       const ip = await fetchIp();
       setClientInfo({ ip, userAgent: ua });
 
-      // Fire view_item when page loads
       gtmEvent("view_item", {
         visitorIP: ip,
         browserName: ua,
         ecommerce: {
           currency: CURRENCY,
           value: PRODUCT_PRICE,
-          items: [
-            {
-              item_id: PRODUCT_ID,
-              item_name: PRODUCT_NAME,
-              price: PRODUCT_PRICE,
-              item_category: PRODUCT_CATEGORY,
-              quantity: 1,
-            },
-          ],
+          items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
         },
       });
-      console.log("✅ view_item event fired to GTM");
     };
 
     initializeTracking();
   }, []);
 
-  // 🟢 ADD_TO_CART Tracking when HeroSection becomes visible
+  // --- ADD_TO_CART Tracking ---
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -90,30 +83,19 @@ const HeroSection = () => {
               ecommerce: {
                 currency: CURRENCY,
                 value: PRODUCT_PRICE,
-                items: [
-                  {
-                    item_id: PRODUCT_ID,
-                    item_name: PRODUCT_NAME,
-                    price: PRODUCT_PRICE,
-                    item_category: PRODUCT_CATEGORY,
-                    quantity: 1,
-                  },
-                ],
+                items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
               },
             });
             hasAddedToCart.current = true;
-            console.log("🟢 add_to_cart event fired to GTM (HeroSection visible)");
           }
         });
       },
-      { threshold: 0.5 } // fires when 50% of section visible
+      { threshold: 0.5 }
     );
-
     observer.observe(section);
     return () => observer.disconnect();
   }, [clientInfo]);
 
-  // --- GTM ECOMMERCE EVENT HANDLERS ---
   const handleBeginCheckout = () => {
     if (!checkoutStarted) {
       gtmEvent("begin_checkout", {
@@ -122,31 +104,21 @@ const HeroSection = () => {
         ecommerce: {
           currency: CURRENCY,
           value: PRODUCT_PRICE,
-          items: [
-            {
-              item_id: PRODUCT_ID,
-              item_name: PRODUCT_NAME,
-              price: PRODUCT_PRICE,
-              item_category: PRODUCT_CATEGORY,
-              quantity: 1,
-            },
-          ],
+          items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
         },
       });
       setCheckoutStarted(true);
-      console.log("✅ begin_checkout event fired to GTM");
     }
   };
 
   // --- MODIFIED ORDER HANDLER ---
-const handleOrder = async (event) => {
+  const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
 
     setIsSubmitting(true);
 
     try {
-      // 1. Gather Form Data
       const name = event.target.name.value;
       const number = event.target.billing_phone.value;
       const address = event.target.billing_address_1.value;
@@ -155,7 +127,6 @@ const handleOrder = async (event) => {
       const totalValue = PRODUCT_PRICE + shippingCost;
 
       const orderData = {
-        // orderId:  <-- WE REMOVED THIS. The backend will add it.
         name,
         number,
         address,
@@ -164,26 +135,14 @@ const handleOrder = async (event) => {
         totalValue,
         status: "Processing",
         phoneCallStatus: "Pending",
-        items: [
-          {
-            item_id: PRODUCT_ID,
-            item_name: PRODUCT_NAME,
-            price: PRODUCT_PRICE,
-            item_category: PRODUCT_CATEGORY,
-            quantity: 1,
-          },
-        ],
-        clientInfo: {
-          ip: clientInfo.ip,
-          userAgent: clientInfo.userAgent,
-        },
+        items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
+        clientInfo: { ip: clientInfo.ip, userAgent: clientInfo.userAgent },
         currency: CURRENCY,
         postId: POST_ID.toString(),
         postType: POST_TYPE,
-        // createdAt will be added by backend
       };
 
-      // 2. POST to Server
+      // POST to Server
       const response = await fetch("https://profit-first-server.vercel.app/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,15 +151,21 @@ const handleOrder = async (event) => {
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        throw new Error("Failed to submit order.");
+      // 🆕 CHECK FOR DUPLICATE ORDER FLAG FROM SERVER
+      if (response.status === 409 || result.reason === "active_order_exists") {
+        console.warn("Duplicate order detected");
+        setShowDuplicateModal(true); // Show the popup
+        setIsSubmitting(false);      // Stop loading
+        return;                      // STOP here, do not redirect
       }
 
-      console.log("✅ Order Success. ID received from server:", result.orderId);
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Failed to submit order.");
+      }
 
-      // 3. Redirect using the ID received from the server
+      // Success - Redirect
       const params = new URLSearchParams({
-        orderId: result.orderId.toString(), // <--- USES THE ID FROM BACKEND
+        orderId: result.orderId.toString(),
         total: totalValue.toString(),
         shippingCost: shippingCost.toString(),
         currency: CURRENCY,
@@ -217,15 +182,73 @@ const handleOrder = async (event) => {
       console.error("❌ Error placing order:", error);
       alert("Order Failed: " + error.message);
     } finally {
-      setIsSubmitting(false);
+        // Only set submitting false if we didn't redirect (e.g. error or duplicate)
+        // If success, we leave it true to prevent double clicks while redirecting
+        if(showDuplicateModal) setIsSubmitting(false);
     }
   };
   
-  const calculatedTotal =
-    PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
+  const calculatedTotal = PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
   return (
-    <section id="order" name="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border">
+    <section id="order" name="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border relative">
+      
+      {/* 🆕 DUPLICATE ORDER MODAL */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center relative animate-in fade-in zoom-in duration-300">
+            <button 
+              onClick={() => setShowDuplicateModal(false)}
+              className="absolute right-4 top-4 text-gray-500 hover:text-red-500"
+            >
+              <XCircle size={28} />
+            </button>
+
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600">
+                <MessageCircle size={32} />
+              </div>
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              আপনার একটি অর্ডার ইতিমধ্যে প্রসেসিং এ আছে!
+            </h2>
+            <p className="text-gray-600 mb-6">
+              আপনি যদি ভুলে ভুল তথ্য দিয়ে থাকেন বা তথ্য পরিবর্তন করতে চান, দয়া করে নতুন অর্ডার না করে আমাদের সাথে সরাসরি যোগাযোগ করুন।
+            </p>
+
+            <div className="space-y-3">
+              <a 
+                href="https://wa.me/8801931692180" // REPLACE WITH YOUR NUMBER
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-all"
+              >
+                <MessageCircle size={20} />
+                WhatsApp এ মেসেজ দিন
+              </a>
+              
+              <a 
+                href="https://www.facebook.com/fb.uddokta" // REPLACE WITH YOUR PAGE USERNAME
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
+              >
+                <Facebook size={20} />
+                Facebook এ মেসেজ দিন
+              </a>
+            </div>
+
+            <button 
+              onClick={() => setShowDuplicateModal(false)}
+              className="mt-4 text-sm text-gray-400 hover:text-gray-600 underline"
+            >
+              বন্ধ করুন
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white px-2 py-8">
         <h1 className="text-4xl text-center mb-8 font-bold">
           বইটি অর্ডার করতে নিচের ফর্মটি পূরণ করুন
@@ -249,7 +272,6 @@ const handleOrder = async (event) => {
               type="tel"
               minLength={11}
               maxLength={16}
-              // pattern="[0-9]{11}"
               className="py-6"
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
@@ -266,14 +288,11 @@ const handleOrder = async (event) => {
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
             autoComplete="billing_address_1"
-            aria-required="true"
             id="billing_address_1"
           />
 
           <div className="w-full">
-            <h2 className="text-2xl font-semibold mb-4">
-              Shipping (শিপিং চার্জ)
-            </h2>
+            <h2 className="text-2xl font-semibold mb-4">Shipping (শিপিং চার্জ)</h2>
             <RadioGroup
               value={shipping}
               onValueChange={setShipping}
@@ -287,11 +306,7 @@ const handleOrder = async (event) => {
                 } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem
-                    value="outside-dhaka"
-                    id="outside-dhaka"
-                    disabled={isSubmitting}
-                  />
+                  <RadioGroupItem value="outside-dhaka" id="outside-dhaka" disabled={isSubmitting} />
                   <span className="text-2xl">ঢাকার বাহিরে:</span>
                 </div>
                 <span className="font-medium">99.00৳</span>
@@ -304,11 +319,7 @@ const handleOrder = async (event) => {
                 } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem
-                    value="inside-dhaka"
-                    id="inside-dhaka"
-                    disabled={isSubmitting}
-                  />
+                  <RadioGroupItem value="inside-dhaka" id="inside-dhaka" disabled={isSubmitting} />
                   <span className="text-2xl">ঢাকার ভিতরে:</span>
                 </div>
                 <span className="font-medium">60.00৳</span>
@@ -317,7 +328,7 @@ const handleOrder = async (event) => {
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg border">
-            <div className="flex justify-between items-center mb-2">
+             <div className="flex justify-between items-center mb-2">
               <span className="text-lg">বই মূল্য:</span>
               <span className="text-lg font-medium">{PRODUCT_PRICE}৳</span>
             </div>
@@ -342,7 +353,7 @@ const handleOrder = async (event) => {
             type="submit"
             disabled={isSubmitting || !clientInfo.ip}
           >
-            {isSubmitting ? "অর্ডার করা হচ্ছে..." : `অর্ডার করুন ${calculatedTotal}৳`}
+            {isSubmitting ? "অর্ডার প্রসেসিং..." : `অর্ডার করুন ${calculatedTotal}৳`}
           </Button>
         </form>
 
