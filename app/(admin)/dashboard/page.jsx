@@ -250,6 +250,26 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Calculate Status Counts dynamically
+  const statusCounts = useMemo(() => {
+    const counts = {
+      Processing: 0,
+      Shipped: 0,
+      Delivered: 0,
+      Cancelled: 0,
+      Returned: 0
+    };
+    orders.forEach(order => {
+      if (counts[order.status] !== undefined) {
+        counts[order.status]++;
+      } else {
+        // Handle cases where status might not match exactly or is new
+        counts.Processing++; 
+      }
+    });
+    return counts;
+  }, [orders]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -289,9 +309,7 @@ export default function App() {
 
   // --- ACTION HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
-    // Update local state
     setOrders(prevOrders => prevOrders.map(order => order.id === id ? { ...order, status: newStatus } : order));
-    // Also update the selectedOrder if it's currently open so the modal reflects the change immediately
     if (selectedOrder && selectedOrder.id === id) {
         setSelectedOrder(prev => ({ ...prev, status: newStatus }));
     }
@@ -308,13 +326,11 @@ export default function App() {
   };
 
   const handleCallStatusChange = async (id, newCallStatus) => {
-    // Update local state
     setOrders(prevOrders =>
       prevOrders.map(order =>
         order.id === id ? { ...order, callStatus: newCallStatus } : order
       )
     );
-    // Also update selectedOrder
     if (selectedOrder && selectedOrder.id === id) {
         setSelectedOrder(prev => ({ ...prev, callStatus: newCallStatus }));
     }
@@ -325,11 +341,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callStatus: newCallStatus }),
       });
-      if (response.ok) {
-        console.log("Call status updated successfully");
-      } else {
-        console.error("Server responded with error");
-      }
+      if (response.ok) console.log("Call status updated successfully");
     } catch (error) {
       console.error("Failed to update call status:", error);
     }
@@ -354,11 +366,19 @@ export default function App() {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
 
+  // Widget Configuration
+  const statusWidgets = [
+    { label: 'Processing', key: 'Processing', icon: CircleDot, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+    { label: 'Shipped', key: 'Shipped', icon: Truck, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+    { label: 'Delivered', key: 'Delivered', icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
+    { label: 'Cancelled', key: 'Cancelled', icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+    { label: 'Returned', key: 'Returned', icon: RotateCcw, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
+  ];
+
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; }`}</style>
       
-      {/* Pass handlers to the modal */}
       {selectedOrder && (
         <OrderModal 
           order={selectedOrder} 
@@ -379,6 +399,7 @@ export default function App() {
         </div>
       </header>
       
+      {/* Time Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
           { label: "Today's Orders", value: stats.today },
@@ -391,7 +412,26 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      {/* NEW STATUS VISUALIZATION DASHBOARD */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+         {statusWidgets.map((widget) => {
+            const Icon = widget.icon;
+            return (
+               <div key={widget.key} className={`flex items-center gap-3 p-4 rounded-xl border ${widget.border} ${widget.bg} transition-all hover:scale-[1.02]`}>
+                  <div className={`p-2.5 rounded-lg bg-gray-900/50 ${widget.color} shadow-sm`}>
+                     <Icon size={20} />
+                  </div>
+                  <div>
+                     <p className="text-[10px] md:text-xs text-gray-400 font-semibold uppercase tracking-wide">{widget.label}</p>
+                     <p className="text-2xl font-bold text-white">{statusCounts[widget.key] || 0}</p>
+                  </div>
+               </div>
+            )
+         })}
+      </div>
       
+      {/* Search and Filter Bar */}
       <div className="mb-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
         <div className="relative w-full md:w-1/3">
           <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
@@ -412,6 +452,7 @@ export default function App() {
         </div>
       </div>
 
+      {/* Table Section */}
       <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
           <table className="inter-font min-w-full divide-y divide-gray-700">
@@ -449,7 +490,6 @@ export default function App() {
                       <td className="whitespace-nowrap py-4 px-4 text-sm font-bold text-white">{order.totalValue} ৳</td>
                       <td className="whitespace-nowrap py-4 px-4 text-sm"><StatusBadge status={order.status} /></td>
                       
-                      {/* --- CALL STATUS DROPDOWN --- */}
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
                          <CallStatusDropdown currentStatus={order.callStatus} onStatusChange={(val) => handleCallStatusChange(order.id, val)} />
                       </td>
