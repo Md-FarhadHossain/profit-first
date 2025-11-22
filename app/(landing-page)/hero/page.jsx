@@ -5,7 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { XCircle, MessageCircle, Facebook } from "lucide-react"; // Ensure you have lucide-react installed
+import { XCircle, MessageCircle, Facebook } from "lucide-react"; 
+
+// --- HELPER: GENERATE OR GET DEVICE ID ---
+const getDeviceId = () => {
+  if (typeof window !== "undefined") {
+    let deviceId = localStorage.getItem("device_id");
+    if (!deviceId) {
+      deviceId = "dev_" + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+      localStorage.setItem("device_id", deviceId);
+    }
+    return deviceId;
+  }
+  return "unknown";
+};
 
 // --- GTM HELPER FUNCTION ---
 const gtmEvent = (eventName, eventData = {}) => {
@@ -28,7 +41,25 @@ const HeroSection = () => {
   const [shipping, setShipping] = useState("outside-dhaka");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
+  
+  // 1. State for Client Technical Info (IP/UA)
   const [clientInfo, setClientInfo] = useState({ ip: null, userAgent: null });
+
+  // 2. State for Marketing Data (Ads, Source)
+  const [marketingData, setMarketingData] = useState({
+    utm_source: "direct",
+    utm_medium: "none",
+    utm_campaign: "none",
+    referrer: "direct",
+    landing_page: "",
+  });
+
+  // 3. State for User Behavior (Visits, Device ID)
+  const [behaviorData, setBehaviorData] = useState({
+    visit_count: 1,
+    device_id: "",
+    first_visit_date: "",
+  });
   
   // 🆕 New State for Duplicate Order Modal
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -36,9 +67,11 @@ const HeroSection = () => {
   const sectionRef = useRef(null);
   const hasAddedToCart = useRef(false); 
 
-  // --- INITIAL DATA FETCHING ---
+  // --- INITIAL DATA FETCHING & TRACKING ---
   useEffect(() => {
     const ua = navigator.userAgent;
+
+    // A. Fetch IP
     const fetchIp = async () => {
       try {
         const response = await fetch("/api/ip");
@@ -51,9 +84,44 @@ const HeroSection = () => {
       }
     };
 
+    // B. Capture Marketing & Behavior Data
+    const captureAnalytics = () => {
+        const params = new URLSearchParams(window.location.search);
+        
+        // 1. Get Marketing Params
+        setMarketingData({
+            utm_source: params.get("utm_source") || "direct",
+            utm_medium: params.get("utm_medium") || "none",
+            utm_campaign: params.get("utm_campaign") || "none",
+            referrer: document.referrer || "direct",
+            landing_page: window.location.href,
+        });
+
+        // 2. Get/Set Behavior Data (LocalStorage)
+        const deviceId = getDeviceId();
+        let visits = parseInt(localStorage.getItem("visit_count") || "0");
+        let firstVisit = localStorage.getItem("first_visit_date");
+
+        // Increment visit count for this session
+        visits += 1; 
+        localStorage.setItem("visit_count", visits.toString());
+
+        if (!firstVisit) {
+            firstVisit = new Date().toISOString();
+            localStorage.setItem("first_visit_date", firstVisit);
+        }
+
+        setBehaviorData({
+            visit_count: visits,
+            device_id: deviceId,
+            first_visit_date: firstVisit
+        });
+    };
+
     const initializeTracking = async () => {
       const ip = await fetchIp();
       setClientInfo({ ip, userAgent: ua });
+      captureAnalytics(); // Run our new analytics logic
 
       gtmEvent("view_item", {
         visitorIP: ip,
@@ -136,10 +204,19 @@ const HeroSection = () => {
         status: "Processing",
         phoneCallStatus: "Pending",
         items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
-        clientInfo: { ip: clientInfo.ip, userAgent: clientInfo.userAgent },
         currency: CURRENCY,
         postId: POST_ID.toString(),
         postType: POST_TYPE,
+        
+        // 👇 ENRICHED DATA SENT TO SERVER 👇
+        clientInfo: { 
+            ip: clientInfo.ip, 
+            userAgent: clientInfo.userAgent,
+            deviceId: behaviorData.device_id, // Identifies specific browser
+            visitCount: behaviorData.visit_count, // How many times they opened page
+            firstVisit: behaviorData.first_visit_date 
+        },
+        marketing: marketingData, // Sends UTM source, medium, etc.
       };
 
       // POST to Server
@@ -182,8 +259,6 @@ const HeroSection = () => {
       console.error("❌ Error placing order:", error);
       alert("Order Failed: " + error.message);
     } finally {
-        // Only set submitting false if we didn't redirect (e.g. error or duplicate)
-        // If success, we leave it true to prevent double clicks while redirecting
         if(showDuplicateModal) setIsSubmitting(false);
     }
   };
@@ -219,7 +294,7 @@ const HeroSection = () => {
 
             <div className="space-y-3">
               <a 
-                href="https://wa.me/8801931692180" // REPLACE WITH YOUR NUMBER
+                href="https://wa.me/8801931692180"
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-all"
@@ -229,7 +304,7 @@ const HeroSection = () => {
               </a>
               
               <a 
-                href="https://www.facebook.com/fb.uddokta" // REPLACE WITH YOUR PAGE USERNAME
+                href="https://www.facebook.com/fb.uddokta" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
