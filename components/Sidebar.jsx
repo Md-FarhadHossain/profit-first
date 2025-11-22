@@ -9,7 +9,8 @@ import {
   ChevronRight, 
   Menu, 
   Package, 
-  X 
+  X,
+  ShoppingCart // 1. Imported new icon
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -65,6 +66,12 @@ export default function Sidebar() {
       label: 'Analytics', 
       path: '/dashboard/analytics', 
       icon: BarChart3 
+    },
+    // 2. Added the new path here
+    { 
+      label: 'Abandoned Orders', 
+      path: '/dashboard/abandoned-orders', 
+      icon: ShoppingCart 
     }
   ];
 

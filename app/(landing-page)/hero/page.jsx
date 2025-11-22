@@ -42,10 +42,17 @@ const HeroSection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
   
-  // 1. State for Client Technical Info (IP/UA)
+  // 1. NEW: State to track user input in real-time
+  const [formData, setFormData] = useState({
+    name: "",
+    number: "",
+    address: ""
+  });
+
+  // 2. State for Client Technical Info (IP/UA)
   const [clientInfo, setClientInfo] = useState({ ip: null, userAgent: null });
 
-  // 2. State for Marketing Data (Ads, Source)
+  // 3. State for Marketing Data (Ads, Source)
   const [marketingData, setMarketingData] = useState({
     utm_source: "direct",
     utm_medium: "none",
@@ -54,14 +61,14 @@ const HeroSection = () => {
     landing_page: "",
   });
 
-  // 3. State for User Behavior (Visits, Device ID)
+  // 4. State for User Behavior (Visits, Device ID)
   const [behaviorData, setBehaviorData] = useState({
     visit_count: 1,
     device_id: "",
     first_visit_date: "",
   });
   
-  // 🆕 New State for Duplicate Order Modal
+  // Duplicate Order Modal State
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   
   const sectionRef = useRef(null);
@@ -84,11 +91,10 @@ const HeroSection = () => {
       }
     };
 
-    // B. Capture Marketing & Behavior Data
+    // B. Capture Analytics
     const captureAnalytics = () => {
         const params = new URLSearchParams(window.location.search);
         
-        // 1. Get Marketing Params
         setMarketingData({
             utm_source: params.get("utm_source") || "direct",
             utm_medium: params.get("utm_medium") || "none",
@@ -97,12 +103,10 @@ const HeroSection = () => {
             landing_page: window.location.href,
         });
 
-        // 2. Get/Set Behavior Data (LocalStorage)
         const deviceId = getDeviceId();
         let visits = parseInt(localStorage.getItem("visit_count") || "0");
         let firstVisit = localStorage.getItem("first_visit_date");
 
-        // Increment visit count for this session
         visits += 1; 
         localStorage.setItem("visit_count", visits.toString());
 
@@ -121,7 +125,7 @@ const HeroSection = () => {
     const initializeTracking = async () => {
       const ip = await fetchIp();
       setClientInfo({ ip, userAgent: ua });
-      captureAnalytics(); // Run our new analytics logic
+      captureAnalytics(); 
 
       gtmEvent("view_item", {
         visitorIP: ip,
@@ -136,6 +140,71 @@ const HeroSection = () => {
 
     initializeTracking();
   }, []);
+
+  // --- UPDATED: PARTIAL FORM CAPTURE (ABANDONED CART LOGIC) ---
+  useEffect(() => {
+    // 1. Don't run if fields are empty or device ID isn't ready
+    if ((!formData.name && !formData.number && !formData.address) || !behaviorData.device_id) {
+        return;
+    }
+
+    // 2. Set a timer to wait 1.5 seconds after typing stops (Debounce)
+    const autoSaveTimer = setTimeout(async () => {
+        console.log("Saving enriched partial order data...");
+        
+        // --- CALCULATION LOGIC ADDED HERE ---
+        const currentShippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
+        const currentTotal = PRODUCT_PRICE + currentShippingCost;
+        const readableShipping = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
+
+        const partialData = {
+            // Identity
+            deviceId: behaviorData.device_id, 
+            name: formData.name,
+            number: formData.number,
+            address: formData.address,
+            
+            // Order Financials (Added as requested)
+            shippingMethod: readableShipping,
+            shippingChoice: shipping, // internal value
+            shippingCost: currentShippingCost,
+            productPrice: PRODUCT_PRICE,
+            totalAmount: currentTotal,
+            currency: CURRENCY,
+            
+            // Product Details
+            items: [{ 
+                item_id: PRODUCT_ID, 
+                item_name: PRODUCT_NAME, 
+                price: PRODUCT_PRICE, 
+                item_category: PRODUCT_CATEGORY, 
+                quantity: 1 
+            }],
+
+            // Tracking & Meta
+            status: "Abandoned", // Explicitly mark as abandoned/partial
+            clientInfo: clientInfo,
+            marketing: marketingData,
+            postId: POST_ID.toString(),
+            localTime: new Date().toLocaleString()
+        };
+
+        try {
+            await fetch("https://profit-first-server.vercel.app/save-partial-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(partialData)
+            });
+        } catch (error) {
+            console.error("Auto-save failed (ignoring silently):", error);
+        }
+    }, 1500); 
+
+    // 3. Cleanup
+    return () => clearTimeout(autoSaveTimer);
+
+  }, [formData, shipping, behaviorData, clientInfo, marketingData]);
+
 
   // --- ADD_TO_CART Tracking ---
   useEffect(() => {
@@ -179,7 +248,15 @@ const HeroSection = () => {
     }
   };
 
-  // --- MODIFIED ORDER HANDLER ---
+  // --- INPUT HANDLERS ---
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "name") setFormData(prev => ({ ...prev, name: value }));
+    if (name === "billing_phone") setFormData(prev => ({ ...prev, number: value }));
+    if (name === "billing_address_1") setFormData(prev => ({ ...prev, address: value }));
+  };
+
+  // --- ORDER HANDLER ---
   const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
@@ -187,9 +264,10 @@ const HeroSection = () => {
     setIsSubmitting(true);
 
     try {
-      const name = event.target.name.value;
-      const number = event.target.billing_phone.value;
-      const address = event.target.billing_address_1.value;
+      const name = formData.name;
+      const number = formData.number;
+      const address = formData.address;
+
       const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
       const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
       const totalValue = PRODUCT_PRICE + shippingCost;
@@ -208,18 +286,16 @@ const HeroSection = () => {
         postId: POST_ID.toString(),
         postType: POST_TYPE,
         
-        // 👇 ENRICHED DATA SENT TO SERVER 👇
         clientInfo: { 
             ip: clientInfo.ip, 
             userAgent: clientInfo.userAgent,
-            deviceId: behaviorData.device_id, // Identifies specific browser
-            visitCount: behaviorData.visit_count, // How many times they opened page
+            deviceId: behaviorData.device_id,
+            visitCount: behaviorData.visit_count,
             firstVisit: behaviorData.first_visit_date 
         },
-        marketing: marketingData, // Sends UTM source, medium, etc.
+        marketing: marketingData,
       };
 
-      // POST to Server
       const response = await fetch("https://profit-first-server.vercel.app/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,19 +304,17 @@ const HeroSection = () => {
 
       const result = await response.json();
 
-      // 🆕 CHECK FOR DUPLICATE ORDER FLAG FROM SERVER
       if (response.status === 409 || result.reason === "active_order_exists") {
         console.warn("Duplicate order detected");
-        setShowDuplicateModal(true); // Show the popup
-        setIsSubmitting(false);      // Stop loading
-        return;                      // STOP here, do not redirect
+        setShowDuplicateModal(true);
+        setIsSubmitting(false);
+        return;
       }
 
       if (!response.ok || !result.success) {
         throw new Error(result.message || "Failed to submit order.");
       }
 
-      // Success - Redirect
       const params = new URLSearchParams({
         orderId: result.orderId.toString(),
         total: totalValue.toString(),
@@ -268,7 +342,7 @@ const HeroSection = () => {
   return (
     <section id="order" name="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border relative">
       
-      {/* 🆕 DUPLICATE ORDER MODAL */}
+      {/* DUPLICATE ORDER MODAL */}
       {showDuplicateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center relative animate-in fade-in zoom-in duration-300">
@@ -337,6 +411,8 @@ const HeroSection = () => {
               name="name"
               required
               type="text"
+              value={formData.name} 
+              onChange={handleInputChange}
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
             />
@@ -348,6 +424,8 @@ const HeroSection = () => {
               minLength={11}
               maxLength={16}
               className="py-6"
+              value={formData.number}
+              onChange={handleInputChange}
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
               autoComplete="tel"
@@ -360,6 +438,8 @@ const HeroSection = () => {
             name="billing_address_1"
             required
             type="text"
+            value={formData.address}
+            onChange={handleInputChange}
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
             autoComplete="billing_address_1"
