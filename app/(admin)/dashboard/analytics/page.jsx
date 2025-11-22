@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Cell, PieChart, Pie, Legend 
+  BarChart, Bar, Cell, PieChart, Pie, Legend, ComposedChart, Line 
 } from 'recharts';
 import { 
   ArrowUpRight, ArrowDownRight, Calendar, TrendingUp, 
-  Package, DollarSign, Activity, Truck, MapPin, ChevronDown 
+  Package, DollarSign, Activity, Truck, MapPin, ChevronDown, Ship 
 } from 'lucide-react';
 import { format, subDays, isSameDay } from 'date-fns';
 import getAllOrders from '@/lib/getAllorders';
@@ -94,7 +94,8 @@ export default function AnalyticsDashboard() {
         orders: 0,
         revenue: 0,
         delivered: 0,
-        cancelled: 0
+        cancelled: 0,
+        shippedVolume: 0 // NEW: Tracks Shipped + Delivered (throughput)
       };
     });
 
@@ -137,6 +138,12 @@ export default function AnalyticsDashboard() {
           dayStat.revenue += orderTotal;
           if (status === 'Delivered') dayStat.delivered += 1;
           if (status === 'Cancelled') dayStat.cancelled += 1;
+          
+          // NEW: Calculate Shipping Volume
+          // We count it as "Shipped Volume" if it is currently Shipped OR Delivered
+          if (['Shipped', 'Delivered'].includes(status)) {
+            dayStat.shippedVolume += 1;
+          }
         }
       }
     });
@@ -192,7 +199,6 @@ export default function AnalyticsDashboard() {
           <p className="text-gray-400 mt-1">Performance metrics for the last <span className="text-blue-400 font-bold">{timeRange} days</span>.</p>
         </div>
         
-        {/* TIME RANGE SELECTOR */}
         <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Calendar size={16} className="text-gray-400" />
@@ -290,9 +296,9 @@ export default function AnalyticsDashboard() {
       </div>
 
       {/* ROW 2: DETAILED BREAKDOWNS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         
-        {/* COL 1: GEOGRAPHY (Inside vs Outside) - NOW WITH PERCENTAGES */}
+        {/* COL 1: GEOGRAPHY */}
         <Card className="min-h-[380px] flex flex-col">
             <div className="flex items-center justify-between mb-2">
                 <div>
@@ -302,7 +308,6 @@ export default function AnalyticsDashboard() {
                 <MapPin size={18} className="text-gray-500" />
             </div>
             
-            {/* Chart Area */}
             <div className="flex-1 w-full relative min-h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -322,14 +327,12 @@ export default function AnalyticsDashboard() {
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
               </ResponsiveContainer>
-              {/* Center Text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-2xl font-bold text-white">{analytics?.locationData.reduce((a, b) => a + b.value, 0)}</span>
                   <span className="text-[10px] text-gray-500 uppercase tracking-wider">Parcels</span>
               </div>
             </div>
 
-            {/* Custom Percentage Stats */}
             <div className="mt-4 space-y-3 border-t border-gray-700/50 pt-4">
                 {analytics?.locationData.map((item) => (
                   <div key={item.name} className="group">
@@ -343,7 +346,6 @@ export default function AnalyticsDashboard() {
                          <span className="text-[10px] text-gray-500 ml-1">({item.value})</span>
                       </div>
                     </div>
-                    {/* Progress Bar */}
                     <div className="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
                       <div 
                         className="h-1.5 rounded-full transition-all duration-1000 ease-out" 
@@ -391,7 +393,7 @@ export default function AnalyticsDashboard() {
             </div>
         </Card>
 
-        {/* COL 3: DAILY PERFORMANCE BAR */}
+        {/* COL 3: DAILY PERFORMANCE */}
         <Card className="min-h-[380px]">
             <div className="flex items-center justify-between mb-6">
                 <div>
@@ -424,8 +426,10 @@ export default function AnalyticsDashboard() {
             </ResponsiveContainer>
             </div>
         </Card>
-
       </div>
+
+     
+
     </div>
   );
 }

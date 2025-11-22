@@ -18,6 +18,21 @@ export default function Sidebar() {
   const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
 
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebarCollapsed");
+    if (saved !== null) {
+      setIsCollapsed(JSON.parse(saved));
+    }
+  }, []);
+
+  // Wrapper to handle toggle and save to localStorage
+  const toggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem("sidebarCollapsed", JSON.stringify(newState));
+  };
+
   // Handle responsive checks
   useEffect(() => {
     const handleResize = () => {
@@ -48,7 +63,7 @@ export default function Sidebar() {
     },
     { 
       label: 'Analytics', 
-      path: 'dashboard/analytics', 
+      path: '/dashboard/analytics', 
       icon: BarChart3 
     }
   ];
@@ -116,7 +131,7 @@ export default function Sidebar() {
         </div>
 
         {/* NAVIGATION ITEMS */}
-        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
+        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto scrollbar-hide">
           {navItems.map((item) => {
             const active = isActive(item.path);
             return (
@@ -142,7 +157,7 @@ export default function Sidebar() {
 
                 {/* Tooltip for Collapsed Mode */}
                 {isCollapsed && !isMobile && (
-                  <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 border border-gray-700 shadow-xl transition-opacity">
+                  <div className="absolute left-full ml-4 px-2 py-1 bg-gray-800 text-white text-xs rounded hidden group-hover:block whitespace-nowrap z-50 border border-gray-700 shadow-xl">
                     {item.label}
                   </div>
                 )}
@@ -155,7 +170,7 @@ export default function Sidebar() {
         {!isMobile && (
           <div className="p-4 border-t border-gray-800 flex justify-end">
             <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onClick={toggleCollapse}
               className="p-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
             >
               {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
