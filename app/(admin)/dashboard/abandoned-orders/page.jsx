@@ -4,12 +4,11 @@ import {
   Search, ChevronLeft, ChevronRight, ChevronDown, 
   Package, Truck, CheckCircle, CircleDot, MapPin, Clock,
   XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign,
-  PhoneCall, PhoneOff, Check, Monitor, Smartphone, Globe, Cpu,
-  Share2, Zap, LayoutTemplate, Info, ShieldCheck, AlertCircle
+  PhoneCall, PhoneOff, Check, Smartphone, Globe, Zap, 
+  LayoutTemplate, Info, ShieldCheck, AlertCircle, ShoppingBag,
+  AlertTriangle, Share2, ArrowRightCircle
 } from 'lucide-react';
 import { UAParser } from 'ua-parser-js'; 
-// 👇 UPDATED: Importing the pending orders function
-import getUnSubmitOrders from '@/lib/getUnSubmitOrders'; 
 
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
@@ -26,7 +25,6 @@ const CALL_OPTIONS = [
   { label: 'No Answer', value: 'No Answer' },
 ];
 
-// --- HELPER: MODEL MAPPING ---
 const DEVICE_CODEX = {
   '23129RAA4G': 'Redmi Note 13 5G',
   '23124RA7EO': 'Redmi Note 13 4G',
@@ -36,614 +34,655 @@ const DEVICE_CODEX = {
   'iPhone16,2': 'iPhone 15 Pro Max',
 };
 
-// --- ADVANCED USER AGENT PARSER ---
+// --- HELPER: USER AGENT PARSER ---
 const getDeepUserAgentInfo = (uaString) => {
+  if (!uaString) return null;
   const parser = new UAParser(uaString);
   const result = parser.getResult();
   
-  const rawModel = result.device.model || '';
-  const marketingName = DEVICE_CODEX[rawModel] || rawModel || 'Unknown Device';
-  const vendor = result.device.vendor || 'Generic';
+  const rawModel = result.device.model || 'PC/Unknown';
+  const marketingName = DEVICE_CODEX[rawModel] || rawModel;
+  const vendor = result.device.vendor || '';
 
-  let appSource = { 
-    name: 'External Browser', 
-    code: 'Browser', 
-    version: result.browser.version,
-    insight: 'User is browsing via a standard web browser (Chrome, Safari, etc.).' 
-  };
-  
+  let appSource = { name: 'Browser', code: 'Web', insight: 'Standard Web Browser' };
   if (uaString.includes('FB_IAB') || uaString.includes('FB4A')) {
-    const fbavMatch = uaString.match(/FBAV\/([\d.]+)/);
-    const fbVersion = fbavMatch ? fbavMatch[1] : 'Unknown';
-
-    appSource = { 
-      name: 'Facebook App', 
-      code: 'FB_IAB', 
-      version: fbVersion,
-      insight: 'User clicked a link inside the Facebook App (Feed/Ad).' 
-    };
+      appSource = { name: 'Facebook App', code: 'FB_IAB', insight: 'User came from Facebook Feed/Ads' };
   } else if (uaString.includes('Instagram')) {
-    appSource = { 
-      name: 'Instagram App', 
-      code: 'Instagram', 
-      version: 'Latest',
-      insight: 'User came from an Instagram Story or Post.' 
-    };
+      appSource = { name: 'Instagram', code: 'IG', insight: 'User came from Instagram' };
+  } else if (uaString.includes('WhatsApp')) {
+      appSource = { name: 'WhatsApp', code: 'WA', insight: 'User came from WhatsApp Link' };
   }
 
-  const isWebView = uaString.includes('wv') || (result.os.name === 'Android' && uaString.includes('Version/'));
-  
-  const environment = {
-    type: isWebView ? 'WebView (In-App)' : 'Standalone Browser',
-    code: isWebView ? 'wv' : 'Standard',
-    insight: isWebView 
-      ? 'Viewing inside another app, not a full browser. High chance of Social Media traffic.' 
-      : 'Using a dedicated browser application (Chrome/Safari).'
-  };
-
-  const summary = `A person using a ${vendor} ${marketingName} running ${result.os.name} ${result.os.version}. They are browsing directly inside ${appSource.name === 'External Browser' && isWebView ? 'an App' : appSource.name}.`;
-
   return {
-    raw: result,
     device: {
-      marketingName,
-      rawModel,
-      vendor,
-      os: `${result.os.name} ${result.os.version}`
+        vendor,
+        marketingName,
+        rawModel,
+        os: `${result.os.name || 'Unknown OS'} ${result.os.version || ''}`.trim()
     },
-    browser: {
-      name: result.browser.name,
-      engine: result.engine.name,
-      version: result.browser.version
-    },
+    browser: `${result.browser.name || 'Unknown'}`,
     appSource,
-    environment,
-    summary
+    summary: `${vendor} ${marketingName} on ${result.os.name}. Source: ${appSource.name}.`
   };
 };
 
 // --- HELPER COMPONENTS ---
+
 const StatusBadge = ({ status }) => {
-  const statusConfig = {
-    Processing: { icon: <CircleDot size={14} />, color: 'bg-blue-600' },
-    Shipped:    { icon: <Truck size={14} />, color: 'bg-purple-600' }, 
-    Delivered:  { icon: <CheckCircle size={14} />, color: 'bg-green-600' },
-    Cancelled:  { icon: <XCircle size={14} />, color: 'bg-red-600' },
-    Returned:   { icon: <RotateCcw size={14} />, color: 'bg-orange-600' },
+  const styles = {
+    Processing: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    Shipped: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    Delivered: 'bg-green-500/10 text-green-400 border-green-500/20',
+    Cancelled: 'bg-red-500/10 text-red-400 border-red-500/20',
+    Returned: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   };
-  // Default to processing if status is missing/unknown
-  const config = statusConfig[status] || statusConfig.Processing;
+  const activeStyle = styles[status] || styles.Processing;
+
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white ${config.color} shadow-sm`}>
-      {config.icon}
-      {status || 'Not Submitted'}
+    <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border ${activeStyle}`}>
+      <CircleDot size={10} fill="currentColor" className="opacity-50" />
+      {status || 'Processing'}
     </span>
   );
 };
 
 const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
-  const statusStyles = {
-    Confirmed: 'border-green-500/50 bg-green-500/20 text-green-200 focus:border-green-500',
-    'No Answer': 'border-red-500/50 bg-red-500/20 text-red-200 focus:border-red-500',
-    'Pending': 'border-yellow-500/50 bg-yellow-500/20 text-yellow-200 focus:border-yellow-500'
-  };
-  const currentStyle = statusStyles[currentStatus] || statusStyles['Pending'];
-
-  const getIcon = () => {
-    if (currentStatus === 'Confirmed') return <Check size={12} />;
-    if (currentStatus === 'No Answer') return <PhoneOff size={12} />;
-    return <PhoneCall size={12} />;
-  };
-
-  return (
-    <div className="relative w-36"> 
-      <select
-        value={currentStatus}
-        onChange={(e) => onStatusChange(e.target.value)}
-        className={`appearance-none w-full rounded-md border py-1.5 pl-8 pr-2 text-xs font-medium shadow-sm focus:outline-none focus:ring-1 ${currentStyle} transition-colors cursor-pointer`}
-      >
-        {CALL_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value} className="bg-gray-800 text-white">
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <div className={`pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 opacity-80 text-currentColor`}>
-        {getIcon()}
+    const statusStyles = {
+      Confirmed: 'border-green-500/50 bg-green-500/20 text-green-200',
+      'No Answer': 'border-red-500/50 bg-red-500/20 text-red-200',
+      'Pending': 'border-yellow-500/50 bg-yellow-500/20 text-yellow-200'
+    };
+    const currentStyle = statusStyles[currentStatus] || statusStyles['Pending'];
+   
+    return (
+      <div className="relative w-32"> 
+        <select
+          value={currentStatus}
+          onChange={(e) => onStatusChange(e.target.value)}
+          className={`appearance-none w-full rounded-md border py-1.5 pl-2 pr-2 text-xs font-medium shadow-sm focus:outline-none focus:ring-1 ${currentStyle} transition-colors cursor-pointer bg-gray-900`}
+        >
+          {CALL_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} className="bg-gray-800 text-white">
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
-    </div>
-  );
+    );
 };
 
 const ActionDropdown = ({ currentStatus, onStatusChange }) => {
-  const statusStyles = {
-    Shipped:   'border-purple-500/50 bg-purple-900/20 text-purple-200 focus:border-purple-500 focus:ring-purple-500',
-    Delivered: 'border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500',
-    Cancelled: 'border-red-500/50 bg-red-900/20 text-red-200 focus:border-red-500 focus:ring-red-500',
-    Returned:  'border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500',
-    Default:   'border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500'
-  };
-  const currentStyle = statusStyles[currentStatus] || statusStyles.Default;
   return (
-    <div className="relative w-36">
+    <div className="relative group">
       <select
         value={currentStatus}
         onChange={(e) => onStatusChange(e.target.value)}
-        className={`appearance-none w-full rounded-md border py-1.5 pl-3 pr-8 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-gray-800 ${currentStyle}`}
+        className="appearance-none w-32 rounded-lg bg-gray-900 border border-gray-700 text-xs font-medium text-gray-300 py-2 pl-3 pr-8 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer hover:border-gray-600"
       >
-        {ACTION_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value} className="bg-gray-800 text-white">
-            {option.label}
-          </option>
-        ))}
+        {ACTION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
       </select>
-      <ChevronDown size={14} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70 ${currentStatus === 'Processing' ? 'text-gray-400' : 'text-currentColor'}`} />
+      <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none group-hover:text-gray-300" />
     </div>
   );
 };
 
-// --- ORDER MODAL ---
-const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
-  if (!order) return null;
+// --- CONFIRMATION POPUP ---
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, customerName }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl transform scale-100">
+                <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center text-green-500 mb-4">
+                        <ArrowRightCircle size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Migrate Order?</h3>
+                    <p className="text-sm text-gray-400 mb-6">
+                        Are you sure you want to move <strong>{customerName}</strong>'s abandoned cart to the active orders list? 
+                        <br/><br/>
+                        <span className="text-xs text-gray-500">This will remove it from 'Abandoned' and create a real order.</span>
+                    </p>
+                    <div className="flex gap-3 w-full">
+                        <button onClick={onClose} className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button onClick={onConfirm} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded-lg transition-colors">
+                            Yes, Migrate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-  const uaString = order.clientInfo?.userAgent || order.userAgent || '';
-  const uaData = getDeepUserAgentInfo(uaString);
-  
+// --- MAIN DETAILS MODAL ---
+const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onMigrateRequest }) => {
+  if (!order) return null;
+  const ua = getDeepUserAgentInfo(order.userAgent);
+  const cartItem = order.items?.[0] || {}; 
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
-      <div className="absolute inset-0" onClick={onClose}></div>
-      <div className="relative w-full max-w-5xl bg-gray-800 rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-5xl bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-900/50 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-              <AlertCircle className="text-yellow-400" size={20} />
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800 bg-gray-900">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-full ${order.status === 'Cancelled' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'}`}>
+              <ShoppingBag size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white">Pending Order Details</h2>
-                <StatusBadge status={order.status} />
+              <h2 className="text-lg font-bold text-white tracking-tight">
+                {order.customer.name || 'Unknown Guest'}
+              </h2>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <span>{order.customer.phone}</span>
+                <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
+                <span className="font-mono text-gray-500">ID: {order.orderId || 'N/A'}</span>
               </div>
-              <p className="text-sm text-yellow-400 font-mono">#{order.orderId} (Not Submitted)</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto custom-scrollbar">
-          
-          {/* LEFT COLUMN: Basic Order Info */}
-          <div className="space-y-6">
-            {/* Customer */}
-            <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 overflow-hidden">
-                <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
-                    <User size={14} className="text-gray-400"/> 
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Customer Input</span>
-                </div>
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-300 border border-gray-700"><User size={18} /></div>
-                    <div><p className="text-xs text-gray-500">Name</p><p className="font-medium text-white">{order.customer.name}</p></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-300 border border-gray-700"><Phone size={14} /></div>
-                        <div><p className="text-xs text-gray-500">Phone</p><p className="font-medium text-white">{order.customer.phone}</p></div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-300 border border-gray-700"><Calendar size={14} /></div>
-                        <div><p className="text-xs text-gray-500">Date</p><p className="font-medium text-white text-xs">{new Date(order.date).toLocaleDateString()}</p></div>
-                    </div>
-                  </div>
-                </div>
-            </div>
-
-            {/* Delivery & Finance */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 flex flex-col">
-                 <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
-                    <MapPin size={14} className="text-gray-400"/>
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Address Input</span>
-                 </div>
-                 <div className="p-4 flex-1 flex flex-col justify-between">
-                    <p className="text-sm text-gray-300 leading-relaxed mb-3">{order.address}</p>
-                    <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-200 w-fit">{order.shippingChoice}</span>
-                 </div>
-               </div>
-               
-               <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 flex flex-col">
-                 <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
-                    <DollarSign size={14} className="text-gray-400"/>
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Est. Payment</span>
-                 </div>
-                 <div className="p-4 flex-1 space-y-2">
-                    <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>{order.totalValue - order.shippingCost}</span></div>
-                    <div className="flex justify-between text-xs text-gray-400"><span>Shipping</span><span>{order.shippingCost}</span></div>
-                    <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-gray-700/50">
-                      <span>Total</span><span className="text-green-400">{order.totalValue} ৳</span>
-                    </div>
-                 </div>
-               </div>
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN: User Agent Analysis */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <ShieldCheck size={18} className="text-blue-400" /> 
-              Digital ID Card
-              <span className="text-xs font-normal text-gray-500 ml-auto bg-gray-900 px-2 py-0.5 rounded-full border border-gray-700">Client Info Decoder</span>
-            </h3>
+        {/* Content */}
+        <div className="p-6 overflow-y-auto custom-scrollbar">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden shadow-lg relative">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+            {/* Column 1: Cart & Financials */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <Package size={14} /> Cart Details
+                </h3>
+                <div className="flex items-start justify-between p-3 bg-gray-900 rounded-lg border border-gray-800">
+                  <div className="flex gap-4">
+                    <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-gray-600 font-bold text-xs">IMG</div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Product ID: {cartItem.postId || 'N/A'}</p>
+                      <p className="text-xs text-gray-400">Price: {cartItem.productPrice || 0} ৳</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white">{cartItem.totalAmount || 0} ৳</p>
+                    <p className="text-[10px] text-gray-500">Total with Shipping</p>
+                  </div>
+                </div>
 
-              {/* 1. Device Hardware */}
-              <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
-                    <Smartphone size={24} />
-                 </div>
-                 <div className="flex-1">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">1. The Device (Hardware)</h4>
-                    <div className="flex items-center gap-2">
-                        <p className="text-lg font-bold text-white tracking-tight">
-                            {uaData.device.vendor} <span className="text-blue-400">{uaData.device.marketingName}</span>
-                        </p>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+                    <p className="text-xs text-gray-500 mb-1">Shipping Method</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                      <Truck size={14} />
+                      <span className="font-medium">{cartItem.shippingMethod || 'Standard'}</span>
                     </div>
-                    {uaData.device.marketingName !== uaData.device.rawModel && (
-                         <p className="text-xs text-gray-500 font-mono mt-0.5">Code: {uaData.device.rawModel}</p>
-                    )}
-                    <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-900/20 text-green-400 text-xs font-medium border border-green-900/50">
-                        <Zap size={10} fill="currentColor" /> {uaData.device.os}
+                  </div>
+                  <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-800">
+                    <p className="text-xs text-gray-500 mb-1">Shipping Cost</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-300">
+                      <DollarSign size={14} />
+                      <span className="font-medium">{cartItem.shippingCost || 0} ৳</span>
                     </div>
-                 </div>
+                  </div>
+                </div>
               </div>
 
-              {/* 2. Environment */}
-              <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10 bg-gray-800/30">
-                 <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
-                    <LayoutTemplate size={24} />
-                 </div>
-                 <div className="flex-1">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">2. The Environment (Software)</h4>
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-white">{uaData.environment.type}</span>
-                        <code className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded text-yellow-500 font-mono border border-gray-700">Code: {uaData.environment.code}</code>
+               <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <MapPin size={14} /> Delivery Info
+                </h3>
+                <div className="text-sm text-gray-300 leading-relaxed bg-gray-900 p-3 rounded-lg border border-gray-800">
+                  {order.address || 'No address provided'}
+                </div>
+              </div>
+            </div>
+
+            {/* Column 2: Digital Fingerprint */}
+            <div className="space-y-4">
+              <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden shadow-lg relative">
+                <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck size={14} /> Digital Footprint
+                  </h3>
+                  {ua?.appSource.name.includes('Facebook') && (
+                    <span className="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full">Ads Traffic</span>
+                  )}
+                </div>
+                
+                {ua ? (
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Device Hardware</p>
+                      <p className="text-sm text-white font-medium flex items-center gap-2">
+                        <Smartphone size={14} className="text-gray-400" /> 
+                        {ua.device.vendor} <span className="text-blue-400">{ua.device.marketingName}</span>
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-400 leading-snug">
-                       {uaData.environment.insight}
-                    </p>
-                 </div>
-              </div>
-
-              {/* 3. App Source */}
-              <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
-                    <Share2 size={24} />
-                 </div>
-                 <div className="flex-1">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">3. The App Source</h4>
-                    <p className={`text-lg font-bold ${uaData.appSource.name.includes('Facebook') ? 'text-blue-400' : 'text-white'}`}>
-                        {uaData.appSource.name}
-                    </p>
-                    
-                    {uaData.appSource.code === 'FB_IAB' && (
-                        <div className="text-xs text-gray-500 font-mono mt-1 mb-2">
-                           Ver: {uaData.appSource.version}
-                        </div>
-                    )}
-
-                    <div className="relative pl-3 border-l-2 border-blue-500/30">
-                        <p className="text-xs text-gray-300 italic">
-                            "{uaData.appSource.insight}"
-                        </p>
+                    <div>
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Browser / App</p>
+                      <p className="text-sm text-white font-medium flex items-center gap-2">
+                        <Globe size={14} className="text-gray-400" /> {ua.appSource.name}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 pl-6 italic">"{ua.appSource.insight}"</p>
                     </div>
-                 </div>
+                    <div>
+                      <p className="text-[10px] text-gray-500 uppercase mb-1">Operating System</p>
+                      <p className="text-sm text-white font-medium flex items-center gap-2">
+                        <Zap size={14} className="text-gray-400" /> {ua.device.os}
+                      </p>
+                    </div>
+                    <div className="pt-3 border-t border-gray-700/50">
+                      <p className="text-[10px] text-gray-500 uppercase mb-2">Network IP</p>
+                      <code className="block bg-black/40 rounded px-2 py-1 text-xs text-green-500 font-mono">
+                         {order.clientInfo?.ip || 'Not Captured'}
+                      </code>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-gray-500 text-xs">No Device Data</div>
+                )}
               </div>
 
-              {/* 4. Browser Engine & Summary */}
-              <div className="p-5 bg-blue-600/5 flex gap-4 items-start relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-blue-900/20 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                    <Info size={24} />
-                 </div>
-                 <div>
-                    <h4 className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">Summary Profile</h4>
-                    <p className="text-sm text-blue-100/90 leading-relaxed">
-                      {uaData.summary}
-                    </p>
-                 </div>
+              <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Recovery Actions</h3>
+                <div className="grid grid-cols-2 gap-2">
+                   <a href={`tel:${order.customer.phone}`} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">
+                     <PhoneCall size={14} /> Call Now
+                   </a>
+                   <button className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg text-xs font-bold transition-colors">
+                     <Share2 size={14} /> WhatsApp
+                   </button>
+                </div>
               </div>
-
             </div>
           </div>
-
         </div>
 
-        {/* Footer: Action Buttons */}
-        <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 shrink-0">
-           <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4">
-              <button onClick={onClose} className="px-5 py-2.5 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-700 hover:text-white transition-all">
-                Close
-              </button>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
-                   <span className="text-xs font-medium text-gray-400 pl-2">Call Status:</span>
-                   <CallStatusDropdown currentStatus={order.callStatus} onStatusChange={onCallStatusChange} />
-                </div>
-                <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
-                   <span className="text-xs font-medium text-gray-400 pl-2">Action:</span>
-                   <ActionDropdown currentStatus={order.status} onStatusChange={onStatusChange} />
-                </div>
-              </div>
-           </div>
+        {/* Footer - ACTIONS */}
+        <div className="px-6 py-4 bg-gray-900 border-t border-gray-800 flex flex-wrap justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+             <span className="text-xs text-gray-500">Call Outcome:</span>
+             <CallStatusDropdown currentStatus={order.callStatus} onStatusChange={onCallStatusChange} />
+          </div>
+          <div className="flex items-center gap-3">
+             <div className="hidden sm:block border-r border-gray-700 h-6 mx-2"></div>
+             
+             {/* MIGRATE BUTTON */}
+             <button 
+                onClick={() => onMigrateRequest(order)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white border border-green-600/30 rounded-lg text-xs font-bold transition-all"
+             >
+                <ArrowRightCircle size={14} /> 
+                Migrate to Active
+             </button>
+
+             <button onClick={onClose} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg ml-2">
+               Save & Close
+             </button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-// --- LOGIC HELPERS ---
-const getShippingLocation = (shippingCost) => {
-  if (shippingCost === 60) return { location: 'Inside Dhaka', color: 'text-green-400' };
-  if (shippingCost === 99) return { location: 'Outside Dhaka', color: 'text-orange-400' };
-  return { location: 'N/A', color: 'text-gray-400' };
-};
-
+// --- HELPERS: UI UTILS ---
 const formatTimeAgo = (dateString) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.round((now - date) / 1000);
-  
-  if (isNaN(seconds) || seconds < 0) return 'Just now';
-  const minutes = Math.round(seconds / 60);
-  const hours = Math.round(minutes / 60);
-  const days = Math.round(hours / 24);
-  
-  if (seconds < 60) return `${seconds} sec ago`;
-  if (minutes < 60) return `${minutes} min ago`;
-  if (hours < 24) return `${hours} hr ago`;
-  return `${days} days ago`;
+  if (!dateString) return 'Unknown';
+  const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + "y ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + "mo ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + "d ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + "h ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + "m ago";
+  return Math.floor(seconds) + "s ago";
 };
 
-// --- MAIN COMPONENT: Pending Orders ---
+// --- MAIN PAGE COMPONENT ---
 export default function PendingOrdersPage() {
   const [orders, setOrders] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null); 
-  const [stats, setStats] = useState({ today: 0, yesterday: 0, thisMonth: 0 });
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showConfirmMigrate, setShowConfirmMigrate] = useState(false);
+  const [orderToMigrate, setOrderToMigrate] = useState(null);
+  
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Calculate Status Counts
-  const statusCounts = useMemo(() => {
-    const counts = { Processing: 0, Shipped: 0, Delivered: 0, Cancelled: 0, Returned: 0 };
-    orders.forEach(order => { 
-        // If status is empty (unsubmitted), we count it as Processing or keep it separate. 
-        // But for the widgets to work, we stick to the dashboard logic:
-        const s = order.status || 'Processing';
-        if (counts[s] !== undefined) counts[s]++; else counts.Processing++; 
-    });
-    return counts;
-  }, [orders]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      // 👇 USING THE NEW FUNCTION: getUnSubmitOrders
-      const data = await getUnSubmitOrders();
-      
-      const transformedData = data.map((order, index) => ({
-        id: order._id || index,
-        customer: { name: order.name || 'N/A', phone: order.number || 'N/A' },
-        address: order.address || 'N/A',
-        shippingMethod: order.shipping || 'N/A',
-        shippingCost: order.shippingCost || 0,
-        totalValue: order.totalValue || 0,
-        status: order.status || 'Processing', // Default to processing if undefined
-        callStatus: order.phoneCallStatus || 'Pending', 
-        orderId: order.orderId,
-        clientInfo: order.clientInfo || {}, 
-        userAgent: order.clientInfo?.userAgent || order.userAgent || '',
-        date: order.createdAt || new Date().toISOString() 
-      }));
-      setOrders(transformedData);
-      
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      setStats({
-        today: transformedData.filter(o => new Date(o.date) >= today).length,
-        yesterday: transformedData.filter(o => { const d = new Date(o.date); return d >= yesterday && d < today; }).length,
-        thisMonth: transformedData.filter(o => new Date(o.date) >= startOfMonth).length
-      });
+  const stats = useMemo(() => {
+    const today = new Date().setHours(0,0,0,0);
+    return {
+      total: orders.length,
+      today: orders.filter(o => new Date(o.createdAt).setHours(0,0,0,0) === today).length,
+      abandoned: orders.filter(o => !o.status || o.status === 'Processing').length
     };
+  }, [orders]);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      // REPLACED IMPORT WITH DIRECT FETCH
+      const response = await fetch('https://profit-first-server.vercel.app/partial-orders');
+      const rawData = await response.json();
+      
+      const processed = rawData.map((item, idx) => ({
+        _id: item._id || `temp-${idx}`,
+        orderId: item.orderId || item.items?.[0]?.postId || 'N/A', 
+        createdAt: item.createdAt || new Date().toISOString(),
+        status: item.marketing?.status || item.status || 'Processing',
+        callStatus: item.phoneCallStatus || 'Pending',
+        customer: {
+          name: item.marketing?.name || item.name || 'Guest',
+          phone: item.marketing?.number || item.number || 'N/A'
+        },
+        items: item.items || [],
+        address: item.address || item.marketing?.address || 'N/A',
+        clientInfo: item.clientInfo || {},
+        userAgent: item.clientInfo?.userAgent || item.userAgent || ''
+      }));
+      setOrders(processed.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+    } catch (error) {
+      console.error("Failed to load orders", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
   }, []);
 
-  // --- HANDLERS ---
-  const handleStatusChange = async (id, newStatus) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
-    if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-    try {
-      // NOTE: Verify if unsubmitted orders use the same endpoint, otherwise update this URL.
-      await fetch(`https://profit-first-server.vercel.app/orders/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }),
-      });
-    } catch (e) { console.error(e); }
-  };
-
-  const handleCallStatusChange = async (id, newCallStatus) => {
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, callStatus: newCallStatus } : o));
-    if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, callStatus: newCallStatus }));
-    try {
-      await fetch(`https://profit-first-server.vercel.app/orders/${id}/call-status`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callStatus: newCallStatus }),
-      });
-    } catch (e) { console.error(e); }
-  };
-
-  const filteredOrders = useMemo(() => orders.filter(o => 
-    o.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    o.customer?.phone?.includes(searchTerm) || o.id?.toString().includes(searchTerm)
-  ), [orders, searchTerm]);
-
-  const paginatedOrders = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredOrders.slice(start, start + itemsPerPage);
-  }, [filteredOrders, currentPage, itemsPerPage]);
+  // --- API HANDLERS ---
   
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
+  const handleStatusUpdate = async (id, newStatus) => {
+    setOrders(prev => prev.map(o => o._id === id ? { ...o, status: newStatus } : o));
+    if (selectedOrder && selectedOrder._id === id) setSelectedOrder(prev => ({...prev, status: newStatus}));
+    try {
+        await fetch(`https://profit-first-server.vercel.app/orders/${id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }),
+        });
+    } catch(e) { console.error("Update failed", e); }
+  };
 
-  // Widgets
-  const statusWidgets = [
-    { label: 'Processing', key: 'Processing', icon: CircleDot, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-    { label: 'Shipped', key: 'Shipped', icon: Truck, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-    { label: 'Delivered', key: 'Delivered', icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
-    { label: 'Cancelled', key: 'Cancelled', icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
-    { label: 'Returned', key: 'Returned', icon: RotateCcw, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-  ];
+  const handleCallStatusUpdate = async (id, newCallStatus) => {
+      setOrders(prev => prev.map(o => o._id === id ? { ...o, callStatus: newCallStatus } : o));
+      if (selectedOrder && selectedOrder._id === id) setSelectedOrder(prev => ({...prev, callStatus: newCallStatus}));
+      try {
+        await fetch(`https://profit-first-server.vercel.app/orders/${id}/call-status`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callStatus: newCallStatus }),
+        });
+      } catch(e) { console.error("Call Status Update failed", e); }
+  };
+
+  // --- MIGRATION LOGIC ---
+  
+  const handleMigrateClick = (order) => {
+      setOrderToMigrate(order);
+      setShowConfirmMigrate(true);
+  };
+
+  const proceedWithMigration = async () => {
+    if (!orderToMigrate) return;
+
+    try {
+        // 1. Prepare Payload: Map frontend "Abandoned" structure to backend "Active Order" structure
+        // Based on your backend, it expects: { number, status, ... }
+        const payload = {
+            ...orderToMigrate,
+            // Explicitly set fields the backend looks for
+            number: orderToMigrate.customer.phone,
+            name: orderToMigrate.customer.name,
+            address: orderToMigrate.address,
+            items: orderToMigrate.items,
+            status: "Processing", // Default status for new confirmed orders
+            phoneCallStatus: "Confirmed", // Logic: If we migrate manually, we likely confirmed it
+            
+            // --- NEW: TAG SOURCE AS ABANDONED ---
+            source: "Abandoned Recovery", 
+            isRecoveredOrder: true
+        };
+
+        // Remove the old _id so MongoDB generates a fresh one for the new collection
+        delete payload._id; 
+
+        // 2. Send to Main Orders Collection
+        const createRes = await fetch('https://profit-first-server.vercel.app/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const createData = await createRes.json();
+
+        if (createData.success) {
+            // 3. If success, DELETE the old abandoned record
+            const deleteRes = await fetch(`https://profit-first-server.vercel.app/partial-orders/${orderToMigrate._id}`, {
+                method: 'DELETE'
+            });
+            
+            // 4. Cleanup UI
+            alert(`Order Migrated Successfully! New Order ID: ${createData.orderId}`);
+            setShowConfirmMigrate(false);
+            setOrderToMigrate(null);
+            setSelectedOrder(null); // Close modal
+            fetchOrders(); // Refresh list to remove the migrated item
+        } else {
+            alert(`Migration Failed: ${createData.message || 'Unknown error'}`);
+            if(createData.reason === 'active_order_exists') {
+                setShowConfirmMigrate(false); // Close popup if it already exists
+            }
+        }
+
+    } catch (error) {
+        console.error("Migration error:", error);
+        alert("Server Error during migration.");
+    }
+  };
+
+  // --- RENDER HELPERS ---
+
+  const filteredOrders = useMemo(() => {
+    const lowerSearch = searchTerm.toLowerCase();
+    return orders.filter(o => 
+        (o.customer.name || '').toLowerCase().includes(lowerSearch) || 
+        (o.customer.phone || '').includes(lowerSearch) ||
+        (o.orderId || '').toLowerCase().includes(lowerSearch)
+    );
+  }, [orders, searchTerm]);
+
+  const paginatedData = filteredOrders.slice((currentPage-1)*itemsPerPage, currentPage*itemsPerPage);
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
 
   return (
-    <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
-      <style>{`.inter-font { font-family: "Inter", sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }`}</style>
+    <div className="min-h-screen bg-black text-gray-200 font-sans selection:bg-blue-500/30">
+       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: #111827; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }`}</style>
       
+      {/* MIGRATION CONFIRMATION MODAL */}
+      <ConfirmationModal 
+        isOpen={showConfirmMigrate}
+        onClose={() => setShowConfirmMigrate(false)}
+        onConfirm={proceedWithMigration}
+        customerName={orderToMigrate?.customer?.name || 'Customer'}
+      />
+
       {selectedOrder && (
         <OrderModal 
           order={selectedOrder} 
-          onClose={() => setSelectedOrder(null)}
-          onStatusChange={(val) => handleStatusChange(selectedOrder.id, val)}
-          onCallStatusChange={(val) => handleCallStatusChange(selectedOrder.id, val)}
+          onClose={() => setSelectedOrder(null)} 
+          onStatusChange={(s) => handleStatusUpdate(selectedOrder._id, s)}
+          onCallStatusChange={(s) => handleCallStatusUpdate(selectedOrder._id, s)}
+          onMigrateRequest={handleMigrateClick}
         />
       )}
 
-      <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          {/* 👇 UPDATED TITLE */}
-          <h1 className="text-3xl font-bold text-white tracking-tight">Pending (Unsubmitted) Orders</h1>
-          <p className="text-gray-400 text-sm mt-1">Manage incomplete orders and abandoned checkouts.</p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-800 px-3 py-1.5 rounded-full border border-gray-700">
-          <Clock size={14} />
-          {currentTime.toLocaleString()}
-        </div>
-      </header>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {[{ label: "Today's Pending", value: stats.today }, { label: "Yesterday's Pending", value: stats.yesterday }, { label: "This Month", value: stats.thisMonth }].map((s, i) => (
-          <div key={i} className="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg hover:border-gray-600 transition-colors">
-            <h3 className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-1">{s.label}</h3>
-            <p className="text-3xl font-bold text-white">{s.value}</p>
+      <div className="max-w-[1600px] mx-auto p-4 md:p-8">
+        <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Unsubmitted Orders</h1>
+            <p className="text-gray-500 text-sm">Review abandoned carts and partial submissions.</p>
           </div>
-        ))}
-      </div>
+          <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-900 px-3 py-1.5 rounded-full border border-gray-800">
+             <Clock size={14} />
+             {currentTime.toLocaleTimeString()}
+          </div>
+        </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-         {statusWidgets.map((w) => {
-            const Icon = w.icon;
-            return (
-               <div key={w.key} className={`flex items-center gap-3 p-4 rounded-xl border ${w.border} ${w.bg} transition-all hover:scale-[1.02]`}>
-                  <div className={`p-2.5 rounded-lg bg-gray-900/50 ${w.color} shadow-sm`}><Icon size={20} /></div>
-                  <div><p className="text-[10px] md:text-xs text-gray-400 font-semibold uppercase">{w.label}</p><p className="text-2xl font-bold text-white">{statusCounts[w.key] || 0}</p></div>
-               </div>
-            )
-         })}
-      </div>
-      
-      <div className="mb-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
-        <div className="relative w-full md:w-1/3">
-          <input type="text" placeholder="Search pending orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+           <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl flex items-center justify-between">
+             <div>
+               <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Total Pending</p>
+               <p className="text-3xl font-bold text-white">{stats.total}</p>
+             </div>
+             <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-500"><ShoppingBag size={20} /></div>
+           </div>
+           <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl flex items-center justify-between">
+             <div>
+               <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Need Attention</p>
+               <p className="text-3xl font-bold text-white">{stats.abandoned}</p>
+             </div>
+             <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center text-red-500"><AlertTriangle size={20} /></div>
+           </div>
+           <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl flex items-center justify-between">
+             <div>
+               <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Created Today</p>
+               <p className="text-3xl font-bold text-white">{stats.today}</p>
+             </div>
+             <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center text-green-500"><Calendar size={20} /></div>
+           </div>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <label className="text-sm text-gray-400">Rows per page:</label>
-          <div className="relative">
-            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-              <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-            </select>
-            <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          </div>
-        </div>
-      </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="inter-font min-w-full divide-y divide-gray-700">
-            <thead className="bg-gray-900/50">
-              <tr>
-                {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Call', 'Action'].map((head) => (
-                  <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">{head}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700 bg-gray-800">
-              {paginatedOrders.length > 0 ? (
-                paginatedOrders.map(order => {
-                  const { location, color } = getShippingLocation(order.shippingCost);
-                  return (
-                    <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
-                      <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
-                      <td className="whitespace-nowrap py-4 px-4">
-                        <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details"><Eye size={18} /></button>
-                      </td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm">
-                        <div className="font-medium text-white">{order.customer?.name}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{order.customer?.phone}</div>
-                      </td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-400">
-                         <div className="flex items-center gap-1.5 text-xs bg-gray-900/50 px-2 py-1 rounded border border-gray-700 w-fit"><Clock size={12} />{formatTimeAgo(order.date)}</div>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-gray-300 max-w-xs truncate" title={order.address}>{order.address}</td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm">
-                        <div className="text-white font-medium">{order.shippingMethod}</div>
-                        <div className={`flex items-center gap-1 ${color} text-xs mt-1`}><MapPin size={10} />{location} ({order.shippingCost}৳)</div>
-                      </td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm font-bold text-white">{order.totalValue} ৳</td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm"><StatusBadge status={order.status} /></td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm"><CallStatusDropdown currentStatus={order.callStatus} onStatusChange={(val) => handleCallStatusChange(order.id, val)} /></td>
-                      <td className="whitespace-nowrap py-4 px-4 text-sm"><ActionDropdown currentStatus={order.status} onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)} /></td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan="10" className="py-12 text-center">
-                    <Package size={48} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-gray-400 text-lg">No pending orders found.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+           <div className="relative w-full md:w-96">
+             <input 
+                type="text" 
+                placeholder="Search name, phone, or ID..." 
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="w-full bg-gray-900 border border-gray-800 text-sm text-white py-2.5 pl-10 pr-4 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+             />
+             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+           </div>
+           <div className="flex items-center gap-2">
+             <span className="text-xs text-gray-500">Rows:</span>
+             <select 
+               value={itemsPerPage} 
+               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+               className="bg-gray-900 border border-gray-800 text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+             >
+               <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+             </select>
+           </div>
+        </div>
+
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
+           <div className="overflow-x-auto">
+             <table className="w-full">
+               <thead>
+                 <tr className="bg-gray-800/50 text-left">
+                   <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
+                   <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Cart Details</th>
+                   <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Time Ago</th>
+                   <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                   <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Call</th>
+                   <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-800">
+                 {loading ? (
+                   <tr><td colSpan="6" className="py-12 text-center text-gray-500">Loading orders...</td></tr>
+                 ) : paginatedData.length === 0 ? (
+                   <tr><td colSpan="6" className="py-12 text-center text-gray-500">No orders found.</td></tr>
+                 ) : (
+                   paginatedData.map((order) => {
+                     const item = order.items?.[0] || {};
+                     return (
+                       <tr key={order._id} className="hover:bg-gray-800/50 transition-colors group">
+                         <td className="py-4 px-6">
+                           <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-linear-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-400 font-bold text-xs border border-gray-600">
+                                {(order.customer.name || 'G').charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">{order.customer.name}</p>
+                                <p className="text-xs text-gray-500 font-mono mt-0.5">{order.customer.phone}</p>
+                              </div>
+                           </div>
+                         </td>
+                         <td className="py-4 px-6">
+                            <div className="flex flex-col gap-1">
+                               <span className="text-sm text-gray-300 font-medium">{item.totalAmount ? `${item.totalAmount} ৳` : 'N/A'}</span>
+                               <span className="text-[10px] text-gray-500">{item.shippingMethod || 'Standard'}</span>
+                               {/* ADDRESS ADDED HERE */}
+                               {order.address && order.address !== 'N/A' && (
+                                  <div className="flex items-center gap-1 mt-0.5  text-gray-400 max-w-[180px]">
+                                     <MapPin size={10} className="shrink-0" />
+                                     <span className="truncate" title={order.address}>{order.address}</span>
+                                  </div>
+                               )}
+                            </div>
+                         </td>
+                         <td className="py-4 px-6">
+                            <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                              <Clock size={12} /> {formatTimeAgo(order.createdAt)}
+                            </span>
+                         </td>
+                         <td className="py-4 px-6">
+                            <StatusBadge status={order.status} />
+                         </td>
+                         <td className="py-4 px-6">
+                            <div className={`text-xs px-2 py-1 rounded border inline-flex items-center gap-1
+                               ${order.callStatus === 'Confirmed' ? 'text-green-400 border-green-500/30 bg-green-500/10' : 
+                                 order.callStatus === 'No Answer' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 
+                                 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10'}`}>
+                               {order.callStatus}
+                            </div>
+                         </td>
+                         <td className="py-4 px-6 text-right">
+                            <button 
+                              onClick={() => setSelectedOrder(order)}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 rounded-lg text-xs font-medium text-white transition-all"
+                            >
+                              <Eye size={14} /> View
+                            </button>
+                         </td>
+                       </tr>
+                     );
+                   })
+                 )}
+               </tbody>
+             </table>
+           </div>
+           {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-xs text-gray-500">Page {currentPage} of {totalPages}</span>
+                <div className="flex gap-2">
+                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className="p-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed hover:text-white">
+                    <ChevronLeft size={16} /></button>
+                    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className="p-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed hover:text-white">
+                    <ChevronRight size={16} /></button>
+                </div>
+            </div>
+           )}
         </div>
       </div>
-      {totalPages > 1 && (
-        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-          <p className="text-gray-400">Showing <span className="font-medium text-white">{startItem}</span> to <span className="font-medium text-white">{endItem}</span> of <span className="font-medium text-white">{filteredOrders.length}</span></p>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentPage(p=>Math.max(1, p-1))} disabled={currentPage===1} className="inline-flex items-center gap-1 rounded-lg border border-gray-600 bg-gray-800 py-2 px-4 font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"><ChevronLeft size={16} />Prev</button>
-            <span className="bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-600 font-mono">{currentPage} / {totalPages}</span>
-            <button onClick={() => setCurrentPage(p=>Math.min(totalPages, p+1))} disabled={currentPage===totalPages} className="inline-flex items-center gap-1 rounded-lg border border-gray-600 bg-gray-800 py-2 px-4 font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors">Next<ChevronRight size={16} /></button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

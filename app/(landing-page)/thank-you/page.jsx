@@ -60,7 +60,7 @@ function ThankYouContent() {
   const displayTotal = searchParams.get("total");
 
   // Replace with your actual Facebook group URL
-  const FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/YOUR_GROUP_ID";
+  const FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/facebook.uddokta";
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">

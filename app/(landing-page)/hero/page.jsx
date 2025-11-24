@@ -141,7 +141,7 @@ const HeroSection = () => {
     initializeTracking();
   }, []);
 
-  // --- UPDATED: PARTIAL FORM CAPTURE (ABANDONED CART LOGIC) ---
+  // --- NEW: PARTIAL FORM CAPTURE (ABANDONED CART LOGIC) ---
   useEffect(() => {
     // 1. Don't run if fields are empty or device ID isn't ready
     if ((!formData.name && !formData.number && !formData.address) || !behaviorData.device_id) {
@@ -150,42 +150,16 @@ const HeroSection = () => {
 
     // 2. Set a timer to wait 1.5 seconds after typing stops (Debounce)
     const autoSaveTimer = setTimeout(async () => {
-        console.log("Saving enriched partial order data...");
+        console.log("Saving partial order data...");
         
-        // --- CALCULATION LOGIC ADDED HERE ---
-        const currentShippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-        const currentTotal = PRODUCT_PRICE + currentShippingCost;
-        const readableShipping = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
-
         const partialData = {
-            // Identity
-            deviceId: behaviorData.device_id, 
+            deviceId: behaviorData.device_id, // Unique ID to match returning user
             name: formData.name,
             number: formData.number,
             address: formData.address,
-            
-            // Order Financials (Added as requested)
-            shippingMethod: readableShipping,
-            shippingChoice: shipping, // internal value
-            shippingCost: currentShippingCost,
-            productPrice: PRODUCT_PRICE,
-            totalAmount: currentTotal,
-            currency: CURRENCY,
-            
-            // Product Details
-            items: [{ 
-                item_id: PRODUCT_ID, 
-                item_name: PRODUCT_NAME, 
-                price: PRODUCT_PRICE, 
-                item_category: PRODUCT_CATEGORY, 
-                quantity: 1 
-            }],
-
-            // Tracking & Meta
-            status: "Abandoned", // Explicitly mark as abandoned/partial
+            shippingChoice: shipping,
             clientInfo: clientInfo,
             marketing: marketingData,
-            postId: POST_ID.toString(),
             localTime: new Date().toLocaleString()
         };
 
@@ -198,9 +172,9 @@ const HeroSection = () => {
         } catch (error) {
             console.error("Auto-save failed (ignoring silently):", error);
         }
-    }, 1500); 
+    }, 1500); // 1500ms delay
 
-    // 3. Cleanup
+    // 3. Cleanup: If user types again within 1.5s, cancel previous timer
     return () => clearTimeout(autoSaveTimer);
 
   }, [formData, shipping, behaviorData, clientInfo, marketingData]);
@@ -248,15 +222,17 @@ const HeroSection = () => {
     }
   };
 
-  // --- INPUT HANDLERS ---
+  // --- NEW: HANDLE INPUT CHANGES ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Map input names to state keys
     if (name === "name") setFormData(prev => ({ ...prev, name: value }));
     if (name === "billing_phone") setFormData(prev => ({ ...prev, number: value }));
     if (name === "billing_address_1") setFormData(prev => ({ ...prev, address: value }));
   };
 
-  // --- ORDER HANDLER ---
+  // --- MODIFIED ORDER HANDLER ---
   const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
@@ -264,6 +240,7 @@ const HeroSection = () => {
     setIsSubmitting(true);
 
     try {
+      // Retrieve data from STATE, not event.target (since we controlled the inputs)
       const name = formData.name;
       const number = formData.number;
       const address = formData.address;
@@ -286,6 +263,7 @@ const HeroSection = () => {
         postId: POST_ID.toString(),
         postType: POST_TYPE,
         
+        // ENRICHED DATA
         clientInfo: { 
             ip: clientInfo.ip, 
             userAgent: clientInfo.userAgent,
@@ -296,6 +274,7 @@ const HeroSection = () => {
         marketing: marketingData,
       };
 
+      // POST to Server
       const response = await fetch("https://profit-first-server.vercel.app/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,6 +283,7 @@ const HeroSection = () => {
 
       const result = await response.json();
 
+      // CHECK FOR DUPLICATE ORDER FLAG
       if (response.status === 409 || result.reason === "active_order_exists") {
         console.warn("Duplicate order detected");
         setShowDuplicateModal(true);
@@ -315,6 +295,7 @@ const HeroSection = () => {
         throw new Error(result.message || "Failed to submit order.");
       }
 
+      // Success - Redirect
       const params = new URLSearchParams({
         orderId: result.orderId.toString(),
         total: totalValue.toString(),
@@ -405,17 +386,19 @@ const HeroSection = () => {
 
         <form onSubmit={handleOrder} className="grid gap-4 max-w-2xl mx-auto">
           <div className="flex flex-col sm:flex-row gap-4">
+            {/* NAME INPUT */}
             <Input
               className="py-6"
               placeholder="Name (আপনার নাম)"
               name="name"
               required
               type="text"
-              value={formData.name} 
-              onChange={handleInputChange}
+              value={formData.name}  // Controlled Value
+              onChange={handleInputChange} // Handle Change
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
             />
+            {/* PHONE INPUT */}
             <Input
               placeholder="Number (মোবাইল নম্বর)"
               name="billing_phone"
@@ -424,22 +407,23 @@ const HeroSection = () => {
               minLength={11}
               maxLength={16}
               className="py-6"
-              value={formData.number}
-              onChange={handleInputChange}
+              value={formData.number} // Controlled Value
+              onChange={handleInputChange} // Handle Change
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
               autoComplete="tel"
             />
           </div>
 
+          {/* ADDRESS INPUT */}
           <Input
             className="py-6"
             placeholder="Address (সম্পূর্ণ ঠিকানা)"
             name="billing_address_1"
             required
             type="text"
-            value={formData.address}
-            onChange={handleInputChange}
+            value={formData.address} // Controlled Value
+            onChange={handleInputChange} // Handle Change
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
             autoComplete="billing_address_1"
