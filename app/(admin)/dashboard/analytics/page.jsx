@@ -7,14 +7,13 @@ import {
 import { 
   ArrowUpRight, ArrowDownRight, Calendar, TrendingUp, 
   Package, DollarSign, Activity, Truck, MapPin, ChevronDown, 
-  Smartphone, Monitor, Cpu, Share2, Globe, ShieldCheck 
+  Smartphone, Monitor, Cpu, Share2, Globe, ShieldCheck, CheckCircle, Send
 } from 'lucide-react';
-import { format, subDays, isSameDay } from 'date-fns';
-import { UAParser } from 'ua-parser-js'; // Import the parser
+import { format, subDays, isSameDay, startOfDay } from 'date-fns';
+import { UAParser } from 'ua-parser-js'; 
 import getAllOrders from '@/lib/getAllorders';
 
 // --- CONFIGURATION: MODEL MAPPING ---
-// Map cryptic model codes to readable marketing names
 const DEVICE_CODEX = {
   '23129RAA4G': 'Redmi Note 13 5G',
   '23124RA7EO': 'Redmi Note 13 4G',
@@ -64,13 +63,12 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-gray-900/95 backdrop-blur border border-gray-700 p-3 rounded-lg shadow-2xl z-50">
-        <p className="text-gray-400 text-xs mb-1 font-mono uppercase tracking-wider">{label || payload[0].name}</p>
+        <p className="text-gray-400 text-xs mb-1 font-mono uppercase tracking-wider">{label}</p>
         {payload.map((entry, index) => (
           <div key={index} className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{backgroundColor: entry.color || entry.fill}}></div>
             <p className="text-sm font-bold text-white">
               {entry.name}: <span className="font-mono ml-1">{entry.value.toLocaleString()}</span>
-              {entry.payload.percentage && <span className="text-xs text-gray-400 ml-2">({entry.payload.percentage}%)</span>}
             </p>
           </div>
         ))}
@@ -136,13 +134,19 @@ export default function AnalyticsDashboard() {
   const analytics = useMemo(() => {
     if (!orders.length) return null;
 
-    const today = new Date();
+    const today = startOfDay(new Date());
     const cutoffDate = subDays(today, timeRange);
 
     // --- BASIC METRICS VARIABLES ---
     let totalRevenue = 0;
     let todayOrders = 0;
     let yesterdayOrders = 0;
+    
+    // Range Counters
+    let rangeOrdersCount = 0;
+    let rangeShippedCount = 0;
+    let rangeDeliveredCount = 0;
+
     const statusDist = { Processing: 0, Shipped: 0, Delivered: 0, Cancelled: 0, Returned: 0 };
     const locationDist = { InsideDhaka: 0, OutsideDhaka: 0, Other: 0 };
     
@@ -150,52 +154,45 @@ export default function AnalyticsDashboard() {
     const uaDataList = [];
 
     // --- CHART DATA SKELETON ---
+    // Create an array of objects for every day in the range
     const chartDataArr = Array.from({ length: timeRange }, (_, i) => {
       const d = subDays(today, timeRange - 1 - i);
-      return { date: format(d, 'MMM dd'), fullDate: d, orders: 0, delivered: 0, cancelled: 0 };
+      return { 
+        date: format(d, 'MMM dd'), 
+        fullDate: d, 
+        orders: 0, 
+        shipped: 0, 
+        delivered: 0,
+        cancelled: 0 
+      };
     });
 
     // --- MAIN LOOP ---
     orders.forEach(order => {
-      const orderDate = new Date(order.createdAt);
-      const isWithinRange = orderDate >= cutoffDate;
-
-      // Global Stats (All Time / Or filter based on preference)
-      // For this example, Revenue/Total is All Time, Charts are timeRange
-      totalRevenue += parseFloat(order.totalValue) || 0;
+      // 1. Parsing Dates
+      const createdDate = new Date(order.createdAt);
+      const shippedDate = order.shippedAt ? new Date(order.shippedAt) : null;
+      const deliveredDate = order.deliveredAt ? new Date(order.deliveredAt) : null;
       
-      // Daily Counters
-      if (isSameDay(orderDate, today)) todayOrders++;
-      if (isSameDay(orderDate, subDays(today, 1))) yesterdayOrders++;
+      const isCreatedInRange = createdDate >= cutoffDate;
 
-      // UA Parsing (For Tech Analytics) - We'll use ALL orders for better sample size
-      // Or move this inside "isWithinRange" if you only want recent tech stats
-      const uaString = order.clientInfo?.userAgent || order.userAgent || '';
-      if (uaString) {
-        const parser = new UAParser(uaString);
-        const res = parser.getResult();
-        
-        // Custom Logic for "Marketing Name"
-        const rawModel = res.device.model;
-        const marketingName = DEVICE_CODEX[rawModel] || rawModel || 'Generic';
-        
-        // Detect App Context
-        let appType = 'Browser';
-        if (uaString.includes('FB_IAB') || uaString.includes('FB4A')) appType = 'Facebook App';
-        else if (uaString.includes('Instagram')) appType = 'Instagram App';
-        else if (uaString.includes('wv') || (res.os.name === 'Android' && uaString.includes('Version/'))) appType = 'WebView';
+      // 2. Global Calculation (Revenue)
+      // Note: Assuming we want revenue from all time, or filter here if needed
+      totalRevenue += parseFloat(order.totalValue) || 0;
 
-        uaDataList.push({
-          os: res.os.name || 'Desktop',
-          osVersion: res.os.version, // e.g., "10", "15"
-          vendor: res.device.vendor || 'Unknown',
-          model: marketingName,
-          browser: res.browser.name,
-          appType: appType
-        });
-      }
+      // 3. Growth Metrics (Created Date)
+      if (isSameDay(createdDate, today)) todayOrders++;
+      if (isSameDay(createdDate, subDays(today, 1))) yesterdayOrders++;
 
-      if (isWithinRange) {
+      // 4. CHART POPULATION & RANGE COUNTS
+      
+      // A. Order Creation Logic
+      if (isCreatedInRange) {
+         rangeOrdersCount++;
+         const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, createdDate));
+         if (dayStat) dayStat.orders += 1;
+
+         // Status & Location Distribution (based on current orders in view)
          const shippingCost = parseFloat(order.shippingCost) || 0;
          const status = order.status || 'Processing';
 
@@ -207,14 +204,45 @@ export default function AnalyticsDashboard() {
          // Status
          if (statusDist[status] !== undefined) statusDist[status]++;
          else statusDist['Processing']++;
+      }
 
-         // Chart Data
-         const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, orderDate));
-         if (dayStat) {
-           dayStat.orders += 1;
-           if (status === 'Delivered') dayStat.delivered += 1;
-           if (status === 'Cancelled') dayStat.cancelled += 1;
-         }
+      // B. Shipped Logic (Based on shippedAt time)
+      if (shippedDate && shippedDate >= cutoffDate) {
+        rangeShippedCount++;
+        const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, shippedDate));
+        if (dayStat) dayStat.shipped += 1;
+      }
+
+      // C. Delivered Logic (Based on deliveredAt time)
+      if (deliveredDate && deliveredDate >= cutoffDate) {
+        rangeDeliveredCount++;
+        const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, deliveredDate));
+        if (dayStat) dayStat.delivered += 1;
+      }
+
+      // 5. UA Parsing (Tech Analytics)
+      // Using all orders for better sample size
+      const uaString = order.clientInfo?.userAgent || order.userAgent || '';
+      if (uaString) {
+        const parser = new UAParser(uaString);
+        const res = parser.getResult();
+        
+        const rawModel = res.device.model;
+        const marketingName = DEVICE_CODEX[rawModel] || rawModel || 'Generic';
+        
+        let appType = 'Browser';
+        if (uaString.includes('FB_IAB') || uaString.includes('FB4A')) appType = 'Facebook App';
+        else if (uaString.includes('Instagram')) appType = 'Instagram App';
+        else if (uaString.includes('wv') || (res.os.name === 'Android' && uaString.includes('Version/'))) appType = 'WebView';
+
+        uaDataList.push({
+          os: res.os.name || 'Desktop',
+          osVersion: res.os.version, 
+          vendor: res.device.vendor || 'Unknown',
+          model: marketingName,
+          browser: res.browser.name,
+          appType: appType
+        });
       }
     });
 
@@ -227,7 +255,6 @@ export default function AnalyticsDashboard() {
     const modelData = aggregateCounts(uaDataList.filter(i => i.model !== 'Generic'), (item) => item.model, 6);
     
     const androidVersions = aggregateCounts(uaDataList.filter(i => i.os === 'Android'), (item) => {
-        // Group Android versions (e.g. 15, 14, 13)
         return `Android ${item.osVersion ? item.osVersion.split('.')[0] : 'Old'}`;
     }, 5);
 
@@ -236,7 +263,6 @@ export default function AnalyticsDashboard() {
       color: i.name.includes('Facebook') ? '#1877F2' : i.name.includes('Instagram') ? '#E1306C' : i.name === 'Browser' ? '#F59E0B' : '#6B7280'
     }));
 
-
     // --- FINAL CALCULATIONS ---
     const growth = yesterdayOrders === 0 ? 100 : ((todayOrders - yesterdayOrders) / yesterdayOrders) * 100;
     const totalLocations = locationDist.InsideDhaka + locationDist.OutsideDhaka + locationDist.Other;
@@ -244,6 +270,9 @@ export default function AnalyticsDashboard() {
 
     return {
       totalOrders: orders.length,
+      rangeOrdersCount,
+      rangeShippedCount,
+      rangeDeliveredCount,
       totalRevenue,
       todayOrders,
       growth: growth.toFixed(1) + '%',
@@ -258,7 +287,6 @@ export default function AnalyticsDashboard() {
         { name: 'Outside Dhaka', value: locationDist.OutsideDhaka, color: '#F59E0B' }, 
       ],
       insidePct,
-      // Tech Stats
       osData,
       modelData,
       androidVersions,
@@ -297,26 +325,27 @@ export default function AnalyticsDashboard() {
       {/* KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard 
-          title="Total Revenue" value={`${analytics?.totalRevenue.toLocaleString()} ৳`} icon={DollarSign}
-          color={{ bg: 'bg-emerald-500', text: 'text-emerald-400' }} trend="up" trendValue="+12%" 
-        />
-        <StatCard 
-          title="Total Orders" value={analytics?.totalOrders} icon={Package}
+          title="Total Orders" value={analytics?.rangeOrdersCount} icon={Package}
           color={{ bg: 'bg-blue-500', text: 'text-blue-400' }}
         />
         <StatCard 
-          title="Today's Volume" value={analytics?.todayOrders} icon={TrendingUp}
-          color={{ bg: 'bg-purple-500', text: 'text-purple-400' }} trend={analytics?.growthDirection} trendValue={analytics?.growth}
+          title="Shipped (Range)" value={analytics?.rangeShippedCount} icon={Send}
+          color={{ bg: 'bg-purple-500', text: 'text-purple-400' }}
         />
-         <StatCard 
-          title="Avg. Delivery" value="94%" icon={Truck} color={{ bg: 'bg-orange-500', text: 'text-orange-400' }}
+        <StatCard 
+          title="Delivered (Range)" value={analytics?.rangeDeliveredCount} icon={CheckCircle}
+          color={{ bg: 'bg-emerald-500', text: 'text-emerald-400' }}
+        />
+        <StatCard 
+          title="Today's Volume" value={analytics?.todayOrders} icon={TrendingUp}
+          color={{ bg: 'bg-orange-500', text: 'text-orange-400' }} trend={analytics?.growthDirection} trendValue={analytics?.growth}
         />
       </div>
 
       {/* MAIN CHART */}
       <div className="mb-6">
         <Card className="min-h-[400px]">
-          <h3 className="text-lg font-bold text-white mb-6">Order Volume Trend</h3>
+          <h3 className="text-lg font-bold text-white mb-6">Performance Trend</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={analytics?.chartData}>
@@ -325,19 +354,31 @@ export default function AnalyticsDashboard() {
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
                     <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                   </linearGradient>
+                  <linearGradient id="colorShipped" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#A855F7" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#A855F7" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorDelivered" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                 <XAxis dataKey="date" stroke="#9CA3AF" tick={{fontSize: 11}} tickLine={false} axisLine={false} dy={10} />
                 <YAxis stroke="#9CA3AF" tick={{fontSize: 11}} tickLine={false} axisLine={false} dx={-10} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="orders" stroke="#3B82F6" strokeWidth={2} fill="url(#colorOrders)" name="Total Orders" />
-                <Area type="monotone" dataKey="delivered" stroke="#22C55E" strokeWidth={2} fill="none" name="Delivered" />
+                <Legend iconType="circle" />
+                
+                <Area type="monotone" dataKey="orders" stroke="#3B82F6" strokeWidth={2} fill="url(#colorOrders)" name="Ordered" />
+                <Area type="monotone" dataKey="shipped" stroke="#A855F7" strokeWidth={2} fill="url(#colorShipped)" name="Shipped" />
+                <Area type="monotone" dataKey="delivered" stroke="#22C55E" strokeWidth={2} fill="url(#colorDelivered)" name="Delivered" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
       </div>
 
+      {/* SECONDARY STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* GEOGRAPHY */}
         <Card className="min-h-[300px]">
@@ -397,7 +438,7 @@ export default function AnalyticsDashboard() {
         </Card>
       </div>
 
-      {/* --- TECH INTELLIGENCE SECTION (NEW) --- */}
+      {/* --- TECH INTELLIGENCE SECTION --- */}
       <div className="mb-4 flex items-center gap-3">
         <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400 border border-indigo-500/20">
             <Cpu size={24} />
@@ -409,8 +450,7 @@ export default function AnalyticsDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-         
-         {/* 1. OS Market Share */}
+         {/* OS Market Share */}
          <Card className="col-span-1 lg:col-span-1 border-t-4 border-t-indigo-500">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-gray-300 uppercase">OS Share</h3>
@@ -425,23 +465,14 @@ export default function AnalyticsDashboard() {
                         <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                 </ResponsiveContainer>
-                {/* Center Label */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                     <span className="text-xl font-bold text-white">{analytics?.osData[0]?.percentage}%</span>
-                     <span className="text-[9px] text-gray-500 uppercase">{analytics?.osData[0]?.name}</span>
+                     <span className="text-xl font-bold text-white">{analytics?.osData[0]?.percentage || 0}%</span>
+                     <span className="text-[9px] text-gray-500 uppercase">{analytics?.osData[0]?.name || 'N/A'}</span>
                 </div>
-            </div>
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-                {analytics?.osData.map(item => (
-                    <div key={item.name} className="flex items-center gap-1.5 text-xs text-gray-400">
-                        <div className="w-2 h-2 rounded-full" style={{backgroundColor: item.color}}></div>
-                        {item.name}
-                    </div>
-                ))}
             </div>
          </Card>
 
-         {/* 2. Top Device Models */}
+         {/* Top Device Models */}
          <Card className="col-span-1 lg:col-span-1 border-t-4 border-t-pink-500">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-gray-300 uppercase">Top Devices</h3>
@@ -467,7 +498,7 @@ export default function AnalyticsDashboard() {
             </div>
          </Card>
 
-         {/* 3. Android Fragmentation */}
+         {/* Android Fragmentation */}
          <Card className="col-span-1 lg:col-span-1 border-t-4 border-t-emerald-500">
             <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold text-gray-300 uppercase">Android Versions</h3>
@@ -489,7 +520,7 @@ export default function AnalyticsDashboard() {
             </div>
          </Card>
 
-         {/* 4. App Context (Where are they buying?) */}
+         {/* App Context */}
          <Card className="col-span-1 lg:col-span-1 border-t-4 border-t-blue-500">
              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-gray-300 uppercase">Traffic Source</h3>

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, 
@@ -88,12 +88,12 @@ const StatusBadge = ({ status }) => {
 
 const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
     const statusStyles = {
-      Confirmed: 'border-green-500/50 bg-green-500/20 text-green-200',
+      Confimed: 'border-green-500/50 bg-green-500/20 text-green-200',
       'No Answer': 'border-red-500/50 bg-red-500/20 text-red-200',
       'Pending': 'border-yellow-500/50 bg-yellow-500/20 text-yellow-200'
     };
     const currentStyle = statusStyles[currentStatus] || statusStyles['Pending'];
-   
+    
     return (
       <div className="relative w-32"> 
         <select
@@ -162,6 +162,12 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onMigr
   const ua = getDeepUserAgentInfo(order.userAgent);
   const cartItem = order.items?.[0] || {}; 
 
+  // FIXED: Read values from root `order` object, falling back to `cartItem` only if necessary
+  const shippingMethod = order.shipping || cartItem.shippingMethod || 'Standard';
+  const shippingCost = order.shippingCost || cartItem.shippingCost || 0;
+  const totalAmount = order.totalValue || cartItem.totalAmount || 0;
+  const productPrice = cartItem.price || cartItem.productPrice || 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="absolute inset-0" onClick={onClose} />
@@ -203,12 +209,12 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onMigr
                   <div className="flex gap-4">
                     <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-gray-600 font-bold text-xs">IMG</div>
                     <div>
-                      <p className="text-sm font-medium text-white">Product ID: {cartItem.postId || 'N/A'}</p>
-                      <p className="text-xs text-gray-400">Price: {cartItem.productPrice || 0} ৳</p>
+                      <p className="text-sm font-medium text-white">Product ID: {cartItem.item_id || cartItem.postId || 'N/A'}</p>
+                      <p className="text-xs text-gray-400">Price: {productPrice} ৳</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-white">{cartItem.totalAmount || 0} ৳</p>
+                    <p className="text-sm font-bold text-white">{totalAmount} ৳</p>
                     <p className="text-[10px] text-gray-500">Total with Shipping</p>
                   </div>
                 </div>
@@ -218,14 +224,14 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onMigr
                     <p className="text-xs text-gray-500 mb-1">Shipping Method</p>
                     <div className="flex items-center gap-2 text-sm text-gray-300">
                       <Truck size={14} />
-                      <span className="font-medium">{cartItem.shippingMethod || 'Standard'}</span>
+                      <span className="font-medium">{shippingMethod}</span>
                     </div>
                   </div>
                   <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-800">
                     <p className="text-xs text-gray-500 mb-1">Shipping Cost</p>
                     <div className="flex items-center gap-2 text-sm text-gray-300">
                       <DollarSign size={14} />
-                      <span className="font-medium">{cartItem.shippingCost || 0} ৳</span>
+                      <span className="font-medium">{shippingCost} ৳</span>
                     </div>
                   </div>
                 </div>
@@ -394,7 +400,12 @@ export default function PendingOrdersPage() {
         items: item.items || [],
         address: item.address || item.marketing?.address || 'N/A',
         clientInfo: item.clientInfo || {},
-        userAgent: item.clientInfo?.userAgent || item.userAgent || ''
+        userAgent: item.clientInfo?.userAgent || item.userAgent || '',
+        
+        // FIXED: Explicitly map the fields from the root level
+        shipping: item.shipping,
+        shippingCost: item.shippingCost,
+        totalValue: item.totalValue
       }));
       setOrders(processed.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
     } catch (error) {
@@ -626,9 +637,11 @@ export default function PendingOrdersPage() {
                          </td>
                          <td className="py-4 px-6">
                             <div className="flex flex-col gap-1">
-                               <span className="text-sm text-gray-300 font-medium">{item.totalAmount ? `${item.totalAmount} ৳` : 'N/A'}</span>
-                               <span className="text-[10px] text-gray-500">{item.shippingMethod || 'Standard'}</span>
-                               {/* ADDRESS ADDED HERE */}
+                               {/* FIXED: Read totalValue from order root */}
+                               <span className="text-sm text-gray-300 font-medium">{order.totalValue ? `${order.totalValue} ৳` : 'N/A'}</span>
+                               {/* FIXED: Read shipping from order root */}
+                               <span className="text-[10px] text-gray-500">{order.shipping || 'Standard'}</span>
+                               
                                {order.address && order.address !== 'N/A' && (
                                   <div className="flex items-center gap-1 mt-0.5  text-gray-400 max-w-[180px]">
                                      <MapPin size={10} className="shrink-0" />

@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +76,6 @@ const HeroSection = () => {
   // --- INITIAL DATA FETCHING & TRACKING ---
   useEffect(() => {
     const ua = navigator.userAgent;
-
     // A. Fetch IP
     const fetchIp = async () => {
       try {
@@ -126,7 +124,6 @@ const HeroSection = () => {
       const ip = await fetchIp();
       setClientInfo({ ip, userAgent: ua });
       captureAnalytics(); 
-
       gtmEvent("view_item", {
         visitorIP: ip,
         browserName: ua,
@@ -152,12 +149,23 @@ const HeroSection = () => {
     const autoSaveTimer = setTimeout(async () => {
         console.log("Saving partial order data...");
         
+        // Calculate missing shipping variables matching handleOrder logic
+        const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
+        const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
+        const totalValue = PRODUCT_PRICE + shippingCost;
+
         const partialData = {
             deviceId: behaviorData.device_id, // Unique ID to match returning user
             name: formData.name,
             number: formData.number,
             address: formData.address,
-            shippingChoice: shipping,
+            shipping: shippingMethod,
+            shippingCost: shippingCost,
+            totalValue: totalValue,
+            items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
+            currency: CURRENCY,
+            postId: POST_ID.toString(),
+            postType: POST_TYPE,
             clientInfo: clientInfo,
             marketing: marketingData,
             localTime: new Date().toLocaleString()
@@ -176,14 +184,13 @@ const HeroSection = () => {
 
     // 3. Cleanup: If user types again within 1.5s, cancel previous timer
     return () => clearTimeout(autoSaveTimer);
-
   }, [formData, shipping, behaviorData, clientInfo, marketingData]);
-
 
   // --- ADD_TO_CART Tracking ---
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -203,6 +210,7 @@ const HeroSection = () => {
       },
       { threshold: 0.5 }
     );
+
     observer.observe(section);
     return () => observer.disconnect();
   }, [clientInfo]);
@@ -236,7 +244,6 @@ const HeroSection = () => {
   const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
-
     setIsSubmitting(true);
 
     try {
@@ -244,7 +251,6 @@ const HeroSection = () => {
       const name = formData.name;
       const number = formData.number;
       const address = formData.address;
-
       const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
       const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
       const totalValue = PRODUCT_PRICE + shippingCost;
@@ -307,9 +313,7 @@ const HeroSection = () => {
         price: PRODUCT_PRICE.toString(),
         quantity: "1",
       });
-
       window.location.href = `/thank-you?${params.toString()}`;
-
     } catch (error) {
       console.error("❌ Error placing order:", error);
       alert("Order Failed: " + error.message);
@@ -333,20 +337,17 @@ const HeroSection = () => {
             >
               <XCircle size={28} />
             </button>
-
             <div className="flex justify-center mb-4">
               <div className="h-16 w-16 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600">
                 <MessageCircle size={32} />
               </div>
             </div>
-
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               আপনার একটি অর্ডার ইতিমধ্যে প্রসেসিং এ আছে!
             </h2>
             <p className="text-gray-600 mb-6">
-              আপনি যদি ভুলে ভুল তথ্য দিয়ে থাকেন বা তথ্য পরিবর্তন করতে চান, দয়া করে নতুন অর্ডার না করে আমাদের সাথে সরাসরি যোগাযোগ করুন।
+              আপনি যদি ভুলে ভুল তথ্য দিয়ে থাকেন বা তথ্য পরিবর্তন করতে চান, দয়া করে নতুন অর্ডার না করে আমাদের সাথে সরাসরি যোগাযোগ করুন।
             </p>
-
             <div className="space-y-3">
               <a 
                 href="https://wa.me/8801931692180"
@@ -368,7 +369,6 @@ const HeroSection = () => {
                 Facebook এ মেসেজ দিন
               </a>
             </div>
-
             <button 
               onClick={() => setShowDuplicateModal(false)}
               className="mt-4 text-sm text-gray-400 hover:text-gray-600 underline"
@@ -383,7 +383,6 @@ const HeroSection = () => {
         <h1 className="text-4xl text-center mb-8 font-bold">
           বইটি অর্ডার করতে নিচের ফর্মটি পূরণ করুন
         </h1>
-
         <form onSubmit={handleOrder} className="grid gap-4 max-w-2xl mx-auto">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* NAME INPUT */}
@@ -414,7 +413,6 @@ const HeroSection = () => {
               autoComplete="tel"
             />
           </div>
-
           {/* ADDRESS INPUT */}
           <Input
             className="py-6"
@@ -450,7 +448,6 @@ const HeroSection = () => {
                 </div>
                 <span className="font-medium">99.00৳</span>
               </Label>
-
               <Label
                 htmlFor="inside-dhaka"
                 className={`flex items-center justify-between p-4 cursor-pointer text-xl transition-colors hover:bg-muted/50 ${

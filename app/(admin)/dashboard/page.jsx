@@ -1,14 +1,13 @@
 "use client"
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Search, ChevronLeft, ChevronRight, ChevronDown, 
+  Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Package, Truck, CheckCircle, CircleDot, MapPin, Clock,
   XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign,
   PhoneCall, PhoneOff, Check, Monitor, Smartphone, Globe, Cpu,
-  Share2, Zap, LayoutTemplate, Info, ShieldCheck
+  Share2, Zap, LayoutTemplate, Info, ShieldCheck, AlertTriangle, ArrowLeftCircle
 } from 'lucide-react';
 import { UAParser } from 'ua-parser-js'; 
-import getAllOrders from '@/lib/getAllorders';
 
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
@@ -16,7 +15,8 @@ const ACTION_OPTIONS = [
   { label: 'Shipped', value: 'Shipped' },
   { label: 'Delivered', value: 'Delivered' },
   { label: 'Cancel', value: 'Cancelled' },
-  { label: 'Return', value: 'Returned' }
+  { label: 'Return', value: 'Returned' },
+  { label: '⚠️ Send to Abandoned', value: 'Abandoned' } // NEW OPTION
 ];
 
 const CALL_OPTIONS = [
@@ -25,10 +25,15 @@ const CALL_OPTIONS = [
   { label: 'No Answer', value: 'No Answer' },
 ];
 
+// --- SHIPPING METHOD OPTIONS ---
+const SHIPPING_METHOD_OPTIONS = [
+  { label: 'Inside DACA', value: 'Inside DACA', cost: 60 },
+  { label: 'Outside DACA', value: 'Outside DACA', cost: 99 },
+];
+
 // --- HELPER: MODEL MAPPING ---
-// Add common cryptic model codes here to translate them to marketing names
 const DEVICE_CODEX = {
-  '23129RAA4G': 'Redmi Note 13 5G', // The specific one you asked for
+  '23129RAA4G': 'Redmi Note 13 5G',
   '23124RA7EO': 'Redmi Note 13 4G',
   'SM-S918B': 'Galaxy S23 Ultra',
   'SM-S908B': 'Galaxy S22 Ultra',
@@ -38,71 +43,47 @@ const DEVICE_CODEX = {
 
 // --- ADVANCED USER AGENT PARSER ---
 const getDeepUserAgentInfo = (uaString) => {
+  if (!uaString) return null;
   const parser = new UAParser(uaString);
   const result = parser.getResult();
   
-  // 1. Better Device Name Logic
   const rawModel = result.device.model || '';
   const marketingName = DEVICE_CODEX[rawModel] || rawModel || 'Unknown Device';
   const vendor = result.device.vendor || 'Generic';
 
-  // 2. Detect In-App Browsers (Facebook/Instagram/TikTok)
   let appSource = { 
     name: 'External Browser', 
     code: 'Browser', 
     version: result.browser.version,
-    insight: 'User is browsing via a standard web browser (Chrome, Safari, etc.).' 
+    insight: 'User is browsing via a standard web browser.' 
   };
   
-  // Facebook Detection
   if (uaString.includes('FB_IAB') || uaString.includes('FB4A')) {
-    // Try to extract FBAV version (e.g., FBAV/539.0.0.54.69)
     const fbavMatch = uaString.match(/FBAV\/([\d.]+)/);
-    const fbVersion = fbavMatch ? fbavMatch[1] : 'Unknown';
-
     appSource = { 
       name: 'Facebook App', 
       code: 'FB_IAB', 
-      version: fbVersion,
-      insight: 'User clicked a link inside the Facebook App (Feed/Ad).' 
+      version: fbavMatch ? fbavMatch[1] : 'Unknown',
+      insight: 'User clicked a link inside the Facebook App.' 
     };
   } else if (uaString.includes('Instagram')) {
-    appSource = { 
-      name: 'Instagram App', 
-      code: 'Instagram', 
-      version: 'Latest',
-      insight: 'User came from an Instagram Story or Post.' 
-    };
+    appSource = { name: 'Instagram App', code: 'Instagram', version: 'Latest', insight: 'User came from Instagram.' };
   }
 
-  // 3. Detect Environment (WebView)
-  // "wv" is the key indicator in the UA string for Android WebViews
   const isWebView = uaString.includes('wv') || (result.os.name === 'Android' && uaString.includes('Version/'));
   
   const environment = {
     type: isWebView ? 'WebView (In-App)' : 'Standalone Browser',
     code: isWebView ? 'wv' : 'Standard',
-    insight: isWebView 
-      ? 'Viewing inside another app, not a full browser. High chance of Social Media traffic.' 
-      : 'Using a dedicated browser application (Chrome/Safari).'
+    insight: isWebView ? 'Viewing inside another app.' : 'Using a dedicated browser.'
   };
 
-  // 4. Construct the "Summary"
-  const summary = `A person using a ${vendor} ${marketingName} running ${result.os.name} ${result.os.version}. They are browsing directly inside ${appSource.name === 'External Browser' && isWebView ? 'an App' : appSource.name}.`;
+  const summary = `${vendor} ${marketingName}, ${result.os.name}. Source: ${appSource.name}.`;
 
   return {
     raw: result,
-    device: {
-      marketingName,
-      rawModel,
-      vendor,
-      os: `${result.os.name} ${result.os.version}`
-    },
-    browser: {
-      name: result.browser.name,
-      engine: result.engine.name,
-      version: result.browser.version
-    },
+    device: { marketingName, rawModel, vendor, os: `${result.os.name} ${result.os.version}` },
+    browser: { name: result.browser.name, engine: result.engine.name, version: result.browser.version },
     appSource,
     environment,
     summary
@@ -117,6 +98,7 @@ const StatusBadge = ({ status }) => {
     Delivered:  { icon: <CheckCircle size={14} />, color: 'bg-green-600' },
     Cancelled:  { icon: <XCircle size={14} />, color: 'bg-red-600' },
     Returned:   { icon: <RotateCcw size={14} />, color: 'bg-orange-600' },
+    Abandoned:  { icon: <AlertTriangle size={14} />, color: 'bg-yellow-600' },
   };
   const config = statusConfig[status] || statusConfig.Processing;
   return (
@@ -167,11 +149,12 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
     Delivered: 'border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500',
     Cancelled: 'border-red-500/50 bg-red-900/20 text-red-200 focus:border-red-500 focus:ring-red-500',
     Returned:  'border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500',
+    Abandoned: 'border-yellow-500/50 bg-yellow-900/20 text-yellow-200 focus:border-yellow-500 focus:ring-yellow-500',
     Default:   'border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500'
   };
   const currentStyle = statusStyles[currentStatus] || statusStyles.Default;
   return (
-    <div className="relative w-36">
+    <div className="relative w-40">
       <select
         value={currentStatus}
         onChange={(e) => onStatusChange(e.target.value)}
@@ -183,18 +166,72 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
           </option>
         ))}
       </select>
-      <ChevronDown size={14} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70 ${currentStatus === 'Processing' ? 'text-gray-400' : 'text-currentColor'}`} />
+      <ChevronDown size={14} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70 text-currentColor`} />
     </div>
   );
 };
 
-// --- UPDATED ORDER MODAL ---
-const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
-  if (!order) return null;
+// --- NEW SHIPPING METHOD DROPDOWN ---
+const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
+  const methodStyles = {
+    'Inside DACA': 'border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500',
+    'Outside DACA': 'border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500',
+    Default: 'border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500'
+  };
+  const currentStyle = methodStyles[currentMethod] || methodStyles.Default;
+  
+  return (
+    <div className="relative w-40">
+      <select
+        value={currentMethod}
+        onChange={(e) => onMethodChange(e.target.value)}
+        className={`appearance-none w-full rounded-md border py-1.5 pl-3 pr-8 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-gray-800 ${currentStyle}`}
+      >
+        {SHIPPING_METHOD_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value} className="bg-gray-800 text-white">
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={14} className={`pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-70 text-currentColor`} />
+    </div>
+  );
+};
 
-  // Grab UA string from clientInfo (as per your screenshot structure)
-  const uaString = order.clientInfo?.userAgent || order.userAgent || '';
-  const uaData = getDeepUserAgentInfo(uaString);
+// --- ABANDON CONFIRMATION MODAL ---
+const AbandonConfirmationModal = ({ isOpen, onClose, onConfirm, customerName }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl transform scale-100">
+                <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center text-yellow-500 mb-4">
+                        <ArrowLeftCircle size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Move to Abandoned?</h3>
+                    <p className="text-sm text-gray-400 mb-6">
+                        Are you sure you want to move <strong>{customerName}</strong> back to the Abandoned list? 
+                        <br/><br/>
+                        <span className="text-xs text-red-400">This will remove it from this dashboard.</span>
+                    </p>
+                    <div className="flex gap-3 w-full">
+                        <button onClick={onClose} className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button onClick={onConfirm} className="flex-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold rounded-lg transition-colors">
+                            Yes, Move
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- UPDATED ORDER MODAL ---
+const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onShippingMethodChange }) => {
+  if (!order) return null;
+  const uaData = getDeepUserAgentInfo(order.clientInfo?.userAgent || order.userAgent || '');
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
@@ -258,7 +295,14 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
                  </div>
                  <div className="p-4 flex-1 flex flex-col justify-between">
                     <p className="text-sm text-gray-300 leading-relaxed mb-3">{order.address}</p>
-                    <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-200 w-fit">{order.shippingMethod}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-200 w-fit">
+                        {order.shippingMethod}
+                      </span>
+                      <span className={`text-xs font-medium ${order.shippingCost === 60 ? 'text-green-400' : 'text-orange-400'}`}>
+                        ({order.shippingCost}৳)
+                      </span>
+                    </div>
                  </div>
                </div>
                
@@ -278,101 +322,36 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: The Digital ID Card (User Agent Analysis) */}
+          {/* RIGHT COLUMN: The Digital ID Card */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <ShieldCheck size={18} className="text-blue-400" /> 
-              Digital ID Card
-              <span className="text-xs font-normal text-gray-500 ml-auto bg-gray-900 px-2 py-0.5 rounded-full border border-gray-700">Client Info Decoder</span>
-            </h3>
-            
-            <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden shadow-lg relative">
-              {/* Decoration */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
-              {/* 1. Device Hardware */}
-              <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
-                    <Smartphone size={24} />
-                 </div>
-                 <div className="flex-1">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">1. The Device (Hardware)</h4>
-                    <div className="flex items-center gap-2">
-                        <p className="text-lg font-bold text-white tracking-tight">
-                            {uaData.device.vendor} <span className="text-blue-400">{uaData.device.marketingName}</span>
-                        </p>
-                    </div>
-                    {/* Show Raw Code if different */}
-                    {uaData.device.marketingName !== uaData.device.rawModel && (
-                         <p className="text-xs text-gray-500 font-mono mt-0.5">Code: {uaData.device.rawModel}</p>
-                    )}
-                    <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-900/20 text-green-400 text-xs font-medium border border-green-900/50">
-                        <Zap size={10} fill="currentColor" /> {uaData.device.os}
-                    </div>
-                 </div>
-              </div>
-
-              {/* 2. Environment */}
-              <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10 bg-gray-800/30">
-                 <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
-                    <LayoutTemplate size={24} />
-                 </div>
-                 <div className="flex-1">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">2. The Environment (Software)</h4>
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-white">{uaData.environment.type}</span>
-                        <code className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded text-yellow-500 font-mono border border-gray-700">Code: {uaData.environment.code}</code>
-                    </div>
-                    <p className="text-xs text-gray-400 leading-snug">
-                       {uaData.environment.insight}
-                    </p>
-                 </div>
-              </div>
-
-              {/* 3. App Source */}
-              <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
-                    <Share2 size={24} />
-                 </div>
-                 <div className="flex-1">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">3. The App Source</h4>
-                    <p className={`text-lg font-bold ${uaData.appSource.name.includes('Facebook') ? 'text-blue-400' : 'text-white'}`}>
-                        {uaData.appSource.name}
-                    </p>
-                    
-                    {uaData.appSource.code === 'FB_IAB' && (
-                        <div className="text-xs text-gray-500 font-mono mt-1 mb-2">
-                           Ver: {uaData.appSource.version}
+             {uaData ? (
+               <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden shadow-lg relative">
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                 
+                 <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
+                     <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner"><Smartphone size={24} /></div>
+                     <div className="flex-1">
+                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Device</h4>
+                        <p className="text-lg font-bold text-white tracking-tight">{uaData.device.vendor} <span className="text-blue-400">{uaData.device.marketingName}</span></p>
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-900/20 text-green-400 text-xs font-medium border border-green-900/50">
+                            <Zap size={10} fill="currentColor" /> {uaData.device.os}
                         </div>
-                    )}
-
-                    <div className="relative pl-3 border-l-2 border-blue-500/30">
-                        <p className="text-xs text-gray-300 italic">
-                            "{uaData.appSource.insight}"
-                        </p>
-                    </div>
+                     </div>
                  </div>
-              </div>
 
-              {/* 4. Browser Engine & Summary */}
-              <div className="p-5 bg-blue-600/5 flex gap-4 items-start relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-blue-900/20 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                    <Info size={24} />
+                 <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
+                     <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner"><Share2 size={24} /></div>
+                     <div className="flex-1">
+                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Source</h4>
+                        <p className={`text-lg font-bold ${uaData.appSource.name.includes('Facebook') ? 'text-blue-400' : 'text-white'}`}>{uaData.appSource.name}</p>
+                        <p className="text-xs text-gray-300 italic mt-1">"{uaData.appSource.insight}"</p>
+                     </div>
                  </div>
-                 <div>
-                    <h4 className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">Summary Profile</h4>
-                    <p className="text-sm text-blue-100/90 leading-relaxed">
-                      {uaData.summary}
-                    </p>
-                    <div className="mt-2 text-[10px] text-blue-300/50 font-mono">
-                      Engine: {uaData.browser.engine}
-                    </div>
-                 </div>
-              </div>
-
-            </div>
+               </div>
+             ) : (
+                <div className="p-6 bg-gray-800 rounded-xl border border-gray-700 text-center text-gray-500">No Digital Footprint Data</div>
+             )}
           </div>
-
         </div>
 
         {/* Footer: Action Buttons */}
@@ -383,6 +362,10 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange }) => {
               </button>
               
               <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
+                   <span className="text-xs font-medium text-gray-400 pl-2">Shipping:</span>
+                   <ShippingMethodDropdown currentMethod={order.shippingMethod} onMethodChange={onShippingMethodChange} />
+                </div>
                 <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
                    <span className="text-xs font-medium text-gray-400 pl-2">Call Status:</span>
                    <CallStatusDropdown currentStatus={order.callStatus} onStatusChange={onCallStatusChange} />
@@ -433,6 +416,21 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Abandon State
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [orderToAbandon, setOrderToAbandon] = useState(null);
+
+  // NEW: Status filter state
+  const [statusFilter, setStatusFilter] = useState(null);
+
+  // NEW: Mobile collapsible state
+  const [mobileSections, setMobileSections] = useState({
+    stats: !false,
+    statusWidgets: false,
+    search: false,
+    table: true
+  });
+
   // Calculate Status Counts
   const statusCounts = useMemo(() => {
     const counts = { Processing: 0, Shipped: 0, Delivered: 0, Cancelled: 0, Returned: 0 };
@@ -447,41 +445,57 @@ export default function App() {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      const data = await getAllOrders();
-      const transformedData = data.map((order, index) => ({
-        id: order._id || index,
-        customer: { name: order.name || 'N/A', phone: order.number || 'N/A' },
-        address: order.address || 'N/A',
-        shippingMethod: order.shipping || 'N/A',
-        shippingCost: order.shippingCost || 0,
-        totalValue: order.totalValue || 0,
-        status: order.status || 'Processing',
-        callStatus: order.phoneCallStatus || 'Pending', 
-        orderId: order.orderId,
-        // Grab clientInfo based on structure
-        clientInfo: order.clientInfo || {}, 
-        userAgent: order.clientInfo?.userAgent || order.userAgent || '',
-        date: order.createdAt || new Date().toISOString() 
-      }));
-      setOrders(transformedData);
-      
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      setStats({
-        today: transformedData.filter(o => new Date(o.date) >= today).length,
-        yesterday: transformedData.filter(o => { const d = new Date(o.date); return d >= yesterday && d < today; }).length,
-        thisMonth: transformedData.filter(o => new Date(o.date) >= startOfMonth).length
-      });
+      try {
+        const res = await fetch('https://profit-first-server.vercel.app/orders');
+        const data = await res.json();
+
+        const transformedData = data.map((order, index) => ({
+          id: order._id || index,
+          customer: { name: order.name || 'N/A', phone: order.number || 'N/A' },
+          address: order.address || 'N/A',
+          shippingMethod: order.shipping || 'N/A',
+          shippingCost: order.shippingCost || 0,
+          totalValue: order.totalValue || 0,
+          status: order.status || 'Processing',
+          callStatus: order.phoneCallStatus || 'Pending', 
+          orderId: order.orderId,
+          clientInfo: order.clientInfo || {}, 
+          userAgent: order.clientInfo?.userAgent || order.userAgent || '',
+          date: order.createdAt || new Date().toISOString() 
+        }));
+        setOrders(transformedData);
+        
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        setStats({
+          today: transformedData.filter(o => new Date(o.date) >= today).length,
+          yesterday: transformedData.filter(o => { const d = new Date(o.date); return d >= yesterday && d < today; }).length,
+          thisMonth: transformedData.filter(o => new Date(o.date) >= startOfMonth).length
+        });
+      } catch (error) {
+        console.error("Failed to fetch orders", error);
+      }
     };
     fetchOrders();
   }, []);
 
   // --- HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
+    // INTERCEPT 'Abandoned' SELECTION
+    if (newStatus === 'Abandoned') {
+        const order = orders.find(o => o.id === id);
+        if (order) {
+            setOrderToAbandon(order);
+            setShowAbandonConfirm(true);
+        }
+        return; // Stop here, wait for confirmation
+    }
+
+    // Normal Status Update
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }));
     try {
@@ -489,6 +503,47 @@ export default function App() {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }),
       });
     } catch (e) { console.error(e); }
+  };
+
+  const proceedWithAbandon = async () => {
+      if (!orderToAbandon) return;
+
+      // Validation: Ensure ID is a valid MongoDB ID (24 chars) to avoid unnecessary server errors
+      // or at least not a simple number index
+      if (typeof orderToAbandon.id === 'number' || orderToAbandon.id.length < 10) {
+          alert("Error: Invalid Order ID. Cannot migrate.");
+          return;
+      }
+      
+      try {
+          const res = await fetch(`https://profit-first-server.vercel.app/orders/${orderToAbandon.id}/move-to-abandoned`, {
+              method: 'POST'
+          });
+
+          // Check for JSON content type to avoid crashing on HTML error pages (404/500)
+          const contentType = res.headers.get("content-type");
+          if (!res.ok || !contentType || !contentType.includes("application/json")) {
+              const text = await res.text();
+              console.error("Migration Failed. Server Response:", text);
+              alert(`Server returned status ${res.status}. Please check console for details.`);
+              return;
+          }
+
+          const data = await res.json();
+          if (data.success) {
+              // Remove from list
+              setOrders(prev => prev.filter(o => o.id !== orderToAbandon.id));
+              setShowAbandonConfirm(false);
+              setOrderToAbandon(null);
+              setSelectedOrder(null); // Close main modal if open
+              alert("Order moved to Abandoned successfully");
+          } else {
+              alert(data.message || "Failed to move order");
+          }
+      } catch (error) {
+          console.error("Error moving to abandoned:", error);
+          alert("A network or server error occurred. Check console.");
+      }
   };
 
   const handleCallStatusChange = async (id, newCallStatus) => {
@@ -501,10 +556,73 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  const filteredOrders = useMemo(() => orders.filter(o => 
-    o.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    o.customer?.phone?.includes(searchTerm) || o.id?.toString().includes(searchTerm)
-  ), [orders, searchTerm]);
+  // NEW: Handle shipping method changes
+  const handleShippingMethodChange = async (id, newMethod) => {
+    // Find the selected shipping option to get the cost
+    const selectedOption = SHIPPING_METHOD_OPTIONS.find(option => option.value === newMethod);
+    if (!selectedOption) return;
+
+    const newCost = selectedOption.cost;
+    
+    // Update local state
+    setOrders(prev => prev.map(o => o.id === id ? { 
+      ...o, 
+      shippingMethod: newMethod, 
+      shippingCost: newCost,
+      totalValue: (o.totalValue - o.shippingCost) + newCost // Adjust total value
+    } : o));
+    
+    if (selectedOrder?.id === id) setSelectedOrder(prev => ({ 
+      ...prev, 
+      shippingMethod: newMethod, 
+      shippingCost: newCost,
+      totalValue: (prev.totalValue - prev.shippingCost) + newCost
+    }));
+    
+    try {
+      await fetch(`https://profit-first-server.vercel.app/orders/${id}/shipping-method`, {
+        method: 'PATCH', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          shippingMethod: newMethod, 
+          shippingCost: newCost 
+        }),
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  // NEW: Handle status widget click
+  const handleStatusWidgetClick = (statusKey) => {
+    if (statusFilter === statusKey) {
+      setStatusFilter(null); // Clear filter if clicking the same status
+    } else {
+      setStatusFilter(statusKey);
+    }
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  // NEW: Toggle mobile sections
+  const toggleMobileSection = (section) => {
+    setMobileSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // Updated filtered orders to include status filter
+  const filteredOrders = useMemo(() => {
+    let filtered = orders.filter(o => 
+      o.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      o.customer?.phone?.includes(searchTerm) || o.id?.toString().includes(searchTerm)
+    );
+    
+    // Apply status filter if active
+    if (statusFilter) {
+      filtered = filtered.filter(o => o.status === statusFilter);
+    }
+    
+    return filtered;
+  }, [orders, searchTerm, statusFilter]);
 
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -524,16 +642,46 @@ export default function App() {
     { label: 'Returned', key: 'Returned', icon: RotateCcw, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
   ];
 
+  // Mobile Collapsible Section Component
+  const MobileSection = ({ title, children, isOpen, onToggle, icon: Icon }) => (
+    <div className="md:hidden bg-gray-800 rounded-xl border border-gray-700 mb-4 overflow-hidden">
+      <button 
+        onClick={onToggle}
+        className="w-full p-4 flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-3">
+          <Icon size={20} className="text-gray-400" />
+          <span className="font-medium text-white">{title}</span>
+        </div>
+        {isOpen ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }`}</style>
       
+      {/* ABANDON CONFIRMATION MODAL */}
+      <AbandonConfirmationModal 
+          isOpen={showAbandonConfirm}
+          onClose={() => setShowAbandonConfirm(false)}
+          onConfirm={proceedWithAbandon}
+          customerName={orderToAbandon?.customer?.name || 'Customer'}
+      />
+
       {selectedOrder && (
         <OrderModal 
           order={selectedOrder} 
           onClose={() => setSelectedOrder(null)}
           onStatusChange={(val) => handleStatusChange(selectedOrder.id, val)}
           onCallStatusChange={(val) => handleCallStatusChange(selectedOrder.id, val)}
+          onShippingMethodChange={(val) => handleShippingMethodChange(selectedOrder.id, val)}
         />
       )}
 
@@ -548,7 +696,25 @@ export default function App() {
         </div>
       </header>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Stats Section - Mobile Collapsible */}
+      <MobileSection 
+        title="Statistics" 
+        isOpen={mobileSections.stats}
+        onToggle={() => toggleMobileSection('stats')}
+        icon={Package}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          {[{ label: "Today's", value: stats.today }, { label: "Yesterday's", value: stats.yesterday }, { label: "This Month's", value: stats.thisMonth }].map((s, i) => (
+            <div key={i} className="bg-gray-700 rounded-xl p-4 border border-gray-600">
+              <h3 className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-1">{s.label}</h3>
+              <p className="text-2xl font-bold text-white">{s.value}</p>
+            </div>
+          ))}
+        </div>
+      </MobileSection>
+
+      {/* Desktop Stats */}
+      <div className="hidden md:grid md:grid-cols-3 gap-4 mb-6">
         {[{ label: "Today's", value: stats.today }, { label: "Yesterday's", value: stats.yesterday }, { label: "This Month's", value: stats.thisMonth }].map((s, i) => (
           <div key={i} className="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg hover:border-gray-600 transition-colors">
             <h3 className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-1">{s.label}</h3>
@@ -557,19 +723,107 @@ export default function App() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      {/* Status Widgets Section - Mobile Collapsible */}
+      <MobileSection 
+        title="Order Status" 
+        isOpen={mobileSections.statusWidgets}
+        onToggle={() => toggleMobileSection('statusWidgets')}
+        icon={CircleDot}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          {statusWidgets.map((w) => {
+            const Icon = w.icon;
+            const isActive = statusFilter === w.key;
+            return (
+              <div 
+                key={w.key} 
+                onClick={() => handleStatusWidgetClick(w.key)}
+                className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.02] ${
+                  isActive 
+                    ? `${w.border} ${w.bg} ring-2 ring-white/20` 
+                    : `${w.border} ${w.bg} hover:border-white/50`
+                }`}
+              >
+                <div className={`p-2.5 rounded-lg bg-gray-900/50 ${w.color} shadow-sm`}><Icon size={20} /></div>
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{w.label}</p>
+                  <p className="text-xl font-bold text-white">{statusCounts[w.key] || 0}</p>
+                </div>
+                {isActive && <div className="w-2 h-2 bg-white rounded-full"></div>}
+              </div>
+            );
+          })}
+        </div>
+      </MobileSection>
+
+      {/* Desktop Status Widgets */}
+      <div className="hidden md:grid md:grid-cols-5 gap-3 mb-6">
          {statusWidgets.map((w) => {
             const Icon = w.icon;
+            const isActive = statusFilter === w.key;
             return (
-               <div key={w.key} className={`flex items-center gap-3 p-4 rounded-xl border ${w.border} ${w.bg} transition-all hover:scale-[1.02]`}>
+               <div 
+                 key={w.key} 
+                 onClick={() => handleStatusWidgetClick(w.key)}
+                 className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.02] ${
+                   isActive 
+                     ? `${w.border} ${w.bg} ring-2 ring-white/20` 
+                     : `${w.border} ${w.bg} hover:border-white/50`
+                 }`}
+               >
                   <div className={`p-2.5 rounded-lg bg-gray-900/50 ${w.color} shadow-sm`}><Icon size={20} /></div>
-                  <div><p className="text-[10px] md:text-xs text-gray-400 font-semibold uppercase">{w.label}</p><p className="text-2xl font-bold text-white">{statusCounts[w.key] || 0}</p></div>
+                  <div className="flex-1">
+                    <p className="text-[10px] md:text-xs text-gray-400 font-semibold uppercase">{w.label}</p>
+                    <p className="text-2xl font-bold text-white">{statusCounts[w.key] || 0}</p>
+                  </div>
+                  {isActive && <div className="w-2 h-2 bg-white rounded-full"></div>}
                </div>
             )
          })}
       </div>
+
+      {/* Active Filter Indicator */}
+      {statusFilter && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-sm text-gray-400">Active filter:</span>
+          <StatusBadge status={statusFilter} />
+          <button 
+            onClick={() => setStatusFilter(null)}
+            className="text-xs text-gray-400 hover:text-white underline"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
       
-      <div className="mb-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50">
+      {/* Search Section - Mobile Collapsible */}
+      <MobileSection 
+        title="Search & Filter" 
+        isOpen={mobileSections.search}
+        onToggle={() => toggleMobileSection('search')}
+        icon={Search}
+      >
+        <div className="space-y-4">
+          <div className="relative">
+            <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-sm text-gray-400">Rows per page:</label>
+            <div className="relative">
+              <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            </div>
+          </div>
+        </div>
+      </MobileSection>
+
+      {/* Desktop Search */}
+      <div className="hidden md:flex md:flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
         <div className="relative w-full md:w-1/3">
           <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
@@ -587,7 +841,68 @@ export default function App() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
+      {/* Table Section - Mobile Collapsible */}
+      <MobileSection 
+        title="Orders Table" 
+        isOpen={mobileSections.table}
+        onToggle={() => toggleMobileSection('table')}
+        icon={Package}
+      >
+        <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800">
+          <div className="overflow-x-auto">
+            <table className="inter-font min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Call', 'Action'].map((head) => (
+                    <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">{head}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700 bg-gray-800">
+                {paginatedOrders.length > 0 ? (
+                  paginatedOrders.map(order => {
+                    const { location, color } = getShippingLocation(order.shippingCost);
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
+                        <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
+                        <td className="whitespace-nowrap py-4 px-4">
+                          <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details"><Eye size={18} /></button>
+                        </td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm">
+                          <div className="font-medium text-white">{order.customer?.name}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">{order.customer?.phone}</div>
+                        </td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-400">
+                           <div className="flex items-center gap-1.5 text-xs bg-gray-900/50 px-2 py-1 rounded border border-gray-700 w-fit"><Clock size={12} />{formatTimeAgo(order.date)}</div>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-300 max-w-xs truncate" title={order.address}>{order.address}</td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm">
+                          <div className="text-white font-medium">{order.shippingMethod}</div>
+                          <div className={`flex items-center gap-1 ${color} text-xs mt-1`}><MapPin size={10} />{location} ({order.shippingCost}৳)</div>
+                        </td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm font-bold text-white">{order.totalValue} ৳</td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm"><StatusBadge status={order.status} /></td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm"><CallStatusDropdown currentStatus={order.callStatus} onStatusChange={(val) => handleCallStatusChange(order.id, val)} /></td>
+                        <td className="whitespace-nowrap py-4 px-4 text-sm"><ActionDropdown currentStatus={order.status} onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)} /></td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="10" className="py-12 text-center">
+                      <Package size={48} className="mx-auto text-gray-600 mb-3" />
+                      <p className="text-gray-400 text-lg">No orders found matching your criteria.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </MobileSection>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
           <table className="inter-font min-w-full divide-y divide-gray-700">
             <thead className="bg-gray-900/50">
