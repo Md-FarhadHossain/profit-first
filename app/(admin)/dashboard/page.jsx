@@ -1,4 +1,5 @@
 "use client"
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
@@ -6,7 +7,7 @@ import {
   XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign,
   PhoneCall, PhoneOff, Check, Monitor, Smartphone, Globe, Cpu,
   Share2, Zap, LayoutTemplate, Info, ShieldCheck, AlertTriangle, ArrowLeftCircle,
-  StickyNote, Save // <--- Added StickyNote and Save icons
+  StickyNote, Save // <--- Icons for Notes
 } from 'lucide-react';
 import { UAParser } from 'ua-parser-js'; 
 
@@ -227,7 +228,7 @@ const AbandonConfirmationModal = ({ isOpen, onClose, onConfirm, customerName }) 
     );
 };
 
-// --- NEW NOTE MODAL COMPONENT ---
+// --- NOTE MODAL COMPONENT ---
 const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
   const [noteText, setNoteText] = useState('');
 
@@ -893,20 +894,33 @@ export default function App() {
               {paginatedOrders.length > 0 ? (
                 paginatedOrders.map(order => {
                   const { location, color } = getShippingLocation(order.shippingCost);
-                  const hasNote = order.note && order.note.trim().length > 0;
                   
                   return (
                     <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
                       <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
                       <td className="whitespace-nowrap py-4 px-4">
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details"><Eye size={18} /></button>
+                            {/* VIEW BUTTON WITH INDICATOR */}
+                            <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all relative" title="View Details">
+                                <Eye size={18} />
+                                {order.note && (
+                                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                                    </span>
+                                )}
+                            </button>
+                            {/* NOTE BUTTON WITH INDICATOR */}
                             <button 
                                 onClick={() => openNoteModal(order)} 
-                                className={`p-2 rounded-lg transition-all ${hasNote ? 'bg-yellow-900/30 text-yellow-500 hover:bg-yellow-600 hover:text-white border border-yellow-500/30' : 'bg-gray-700 text-gray-400 hover:bg-yellow-600 hover:text-white'}`}
-                                title={hasNote ? "Edit Note" : "Add Note"}
+                                className={`p-2 rounded-lg transition-all border ${
+                                    order.note 
+                                    ? 'bg-yellow-500 text-black border-yellow-400 hover:bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.5)]' 
+                                    : 'bg-gray-700 text-gray-400 border-transparent hover:bg-gray-600 hover:text-white'
+                                }`}
+                                title={order.note ? "Edit Note" : "Add Note"}
                             >
-                                <StickyNote size={18} />
+                                <StickyNote size={18} fill={order.note ? "currentColor" : "none"} />
                             </button>
                         </div>
                       </td>
