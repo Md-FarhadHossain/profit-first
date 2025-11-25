@@ -57,8 +57,8 @@ const CALL_OPTIONS = [
 ];
 
 const SHIPPING_METHOD_OPTIONS = [
-  { label: "Inside DACA", value: "Inside DACA", cost: 60 },
-  { label: "Outside DACA", value: "Outside DACA", cost: 99 },
+  { label: "Inside Dhaka", value: "Inside Dhaka", cost: 60 },
+  { label: "Outside Dhaka", value: "Outside Dhaka", cost: 99 },
 ];
 
 // --- HELPER: MODEL MAPPING ---
@@ -245,9 +245,9 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
 
 const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
   const methodStyles = {
-    "Inside DACA":
+    "Inside Dhaka":
       "border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500",
-    "Outside DACA":
+    "Outside Dhaka":
       "border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500",
     Default:
       "border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500",
