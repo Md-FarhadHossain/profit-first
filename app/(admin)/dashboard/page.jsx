@@ -5,7 +5,8 @@ import {
   Package, Truck, CheckCircle, CircleDot, MapPin, Clock,
   XCircle, RotateCcw, Eye, X, User, Phone, Calendar, DollarSign,
   PhoneCall, PhoneOff, Check, Monitor, Smartphone, Globe, Cpu,
-  Share2, Zap, LayoutTemplate, Info, ShieldCheck, AlertTriangle, ArrowLeftCircle
+  Share2, Zap, LayoutTemplate, Info, ShieldCheck, AlertTriangle, ArrowLeftCircle,
+  StickyNote, Save // <--- Added StickyNote and Save icons
 } from 'lucide-react';
 import { UAParser } from 'ua-parser-js'; 
 
@@ -16,7 +17,7 @@ const ACTION_OPTIONS = [
   { label: 'Delivered', value: 'Delivered' },
   { label: 'Cancel', value: 'Cancelled' },
   { label: 'Return', value: 'Returned' },
-  { label: '⚠️ Send to Abandoned', value: 'Abandoned' } // NEW OPTION
+  { label: '⚠️ Send to Abandoned', value: 'Abandoned' }
 ];
 
 const CALL_OPTIONS = [
@@ -25,7 +26,6 @@ const CALL_OPTIONS = [
   { label: 'No Answer', value: 'No Answer' },
 ];
 
-// --- SHIPPING METHOD OPTIONS ---
 const SHIPPING_METHOD_OPTIONS = [
   { label: 'Inside DACA', value: 'Inside DACA', cost: 60 },
   { label: 'Outside DACA', value: 'Outside DACA', cost: 99 },
@@ -171,7 +171,6 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
   );
 };
 
-// --- NEW SHIPPING METHOD DROPDOWN ---
 const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
   const methodStyles = {
     'Inside DACA': 'border-green-500/50 bg-green-900/20 text-green-200 focus:border-green-500 focus:ring-green-500',
@@ -228,6 +227,64 @@ const AbandonConfirmationModal = ({ isOpen, onClose, onConfirm, customerName }) 
     );
 };
 
+// --- NEW NOTE MODAL COMPONENT ---
+const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
+  const [noteText, setNoteText] = useState('');
+
+  // Reset text when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setNoteText(initialNote || '');
+    }
+  }, [isOpen, initialNote]);
+
+  if (!isOpen || !order) return null;
+
+  return (
+    <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-gray-800/50 px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+           <div className="flex items-center gap-3">
+             <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-500">
+                <StickyNote size={20} />
+             </div>
+             <div>
+                <h3 className="text-white font-bold text-lg">Order Note</h3>
+                <p className="text-xs text-gray-400">For {order.customer.name}</p>
+             </div>
+           </div>
+           <button onClick={onClose} className="text-gray-400 hover:text-white">
+             <X size={20} />
+           </button>
+        </div>
+        
+        {/* Body */}
+        <div className="p-6">
+           <label className="block text-sm text-gray-400 mb-2">Special instructions or details:</label>
+           <textarea 
+             value={noteText}
+             onChange={(e) => setNoteText(e.target.value)}
+             className="w-full h-32 bg-gray-950 border border-gray-700 rounded-lg p-3 text-gray-200 text-sm focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 resize-none"
+             placeholder="e.g. Customer requested price reduction, deliver after 5PM..."
+           />
+           <div className="mt-4 flex gap-3">
+             <button onClick={onClose} className="flex-1 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 font-medium transition-colors text-sm">
+                Cancel
+             </button>
+             <button 
+                onClick={() => onSave(order.id, noteText)}
+                className="flex-1 py-2.5 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 font-bold transition-colors text-sm flex items-center justify-center gap-2"
+             >
+                <Save size={16} /> Save Note
+             </button>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- UPDATED ORDER MODAL ---
 const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onShippingMethodChange }) => {
   if (!order) return null;
@@ -262,6 +319,18 @@ const OrderModal = ({ order, onClose, onStatusChange, onCallStatusChange, onShip
           
           {/* LEFT COLUMN: Basic Order Info */}
           <div className="space-y-6">
+            
+            {/* Display Note if exists inside Details too */}
+            {order.note && (
+               <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4 flex gap-3">
+                  <StickyNote className="text-yellow-500 shrink-0" size={20} />
+                  <div>
+                    <h4 className="text-yellow-500 font-bold text-xs uppercase tracking-wider mb-1">Special Note</h4>
+                    <p className="text-gray-200 text-sm italic">"{order.note}"</p>
+                  </div>
+               </div>
+            )}
+
             {/* Customer */}
             <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 overflow-hidden">
                 <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
@@ -420,16 +489,15 @@ export default function App() {
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [orderToAbandon, setOrderToAbandon] = useState(null);
 
-  // NEW: Status filter state
+  // Note Modal State
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [noteOrder, setNoteOrder] = useState(null);
+
+  // Status filter state
   const [statusFilter, setStatusFilter] = useState(null);
 
-  // NEW: Mobile collapsible state
-  const [mobileSections, setMobileSections] = useState({
-    stats: !false,
-    statusWidgets: false,
-    search: false,
-    table: true
-  });
+  // COLLAPSIBLE STATE (Only for the Status Widgets now)
+  const [isStatusWidgetOpen, setIsStatusWidgetOpen] = useState(false);
 
   // Calculate Status Counts
   const statusCounts = useMemo(() => {
@@ -461,7 +529,8 @@ export default function App() {
           orderId: order.orderId,
           clientInfo: order.clientInfo || {}, 
           userAgent: order.clientInfo?.userAgent || order.userAgent || '',
-          date: order.createdAt || new Date().toISOString() 
+          date: order.createdAt || new Date().toISOString(),
+          note: order.note || '' // <--- Added note field
         }));
         setOrders(transformedData);
         
@@ -485,17 +554,15 @@ export default function App() {
 
   // --- HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
-    // INTERCEPT 'Abandoned' SELECTION
     if (newStatus === 'Abandoned') {
         const order = orders.find(o => o.id === id);
         if (order) {
             setOrderToAbandon(order);
             setShowAbandonConfirm(true);
         }
-        return; // Stop here, wait for confirmation
+        return; 
     }
 
-    // Normal Status Update
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }));
     try {
@@ -507,9 +574,6 @@ export default function App() {
 
   const proceedWithAbandon = async () => {
       if (!orderToAbandon) return;
-
-      // Validation: Ensure ID is a valid MongoDB ID (24 chars) to avoid unnecessary server errors
-      // or at least not a simple number index
       if (typeof orderToAbandon.id === 'number' || orderToAbandon.id.length < 10) {
           alert("Error: Invalid Order ID. Cannot migrate.");
           return;
@@ -520,7 +584,6 @@ export default function App() {
               method: 'POST'
           });
 
-          // Check for JSON content type to avoid crashing on HTML error pages (404/500)
           const contentType = res.headers.get("content-type");
           if (!res.ok || !contentType || !contentType.includes("application/json")) {
               const text = await res.text();
@@ -531,11 +594,10 @@ export default function App() {
 
           const data = await res.json();
           if (data.success) {
-              // Remove from list
               setOrders(prev => prev.filter(o => o.id !== orderToAbandon.id));
               setShowAbandonConfirm(false);
               setOrderToAbandon(null);
-              setSelectedOrder(null); // Close main modal if open
+              setSelectedOrder(null); 
               alert("Order moved to Abandoned successfully");
           } else {
               alert(data.message || "Failed to move order");
@@ -556,20 +618,17 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  // NEW: Handle shipping method changes
   const handleShippingMethodChange = async (id, newMethod) => {
-    // Find the selected shipping option to get the cost
     const selectedOption = SHIPPING_METHOD_OPTIONS.find(option => option.value === newMethod);
     if (!selectedOption) return;
 
     const newCost = selectedOption.cost;
     
-    // Update local state
     setOrders(prev => prev.map(o => o.id === id ? { 
       ...o, 
       shippingMethod: newMethod, 
       shippingCost: newCost,
-      totalValue: (o.totalValue - o.shippingCost) + newCost // Adjust total value
+      totalValue: (o.totalValue - o.shippingCost) + newCost 
     } : o));
     
     if (selectedOrder?.id === id) setSelectedOrder(prev => ({ 
@@ -591,32 +650,53 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  // NEW: Handle status widget click
+  // --- NEW NOTE SAVE HANDLER ---
+  const handleSaveNote = async (id, noteText) => {
+    // 1. Optimistic Update (Update UI instantly)
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, note: noteText } : o));
+    
+    // Update selected order if it's the one being edited
+    if (selectedOrder?.id === id) {
+        setSelectedOrder(prev => ({ ...prev, note: noteText }));
+    }
+
+    // Close Modal
+    setIsNoteModalOpen(false);
+    setNoteOrder(null);
+
+    // 2. Send to Backend
+    try {
+      await fetch(`https://profit-first-server.vercel.app/orders/${id}/note`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: noteText }),
+      });
+    } catch (e) {
+      console.error("Failed to save note", e);
+      alert("Failed to save note to server");
+    }
+  };
+
+  const openNoteModal = (order) => {
+      setNoteOrder(order);
+      setIsNoteModalOpen(true);
+  };
+
   const handleStatusWidgetClick = (statusKey) => {
     if (statusFilter === statusKey) {
-      setStatusFilter(null); // Clear filter if clicking the same status
+      setStatusFilter(null); 
     } else {
       setStatusFilter(statusKey);
     }
-    setCurrentPage(1); // Reset to first page when filtering
+    setCurrentPage(1);
   };
 
-  // NEW: Toggle mobile sections
-  const toggleMobileSection = (section) => {
-    setMobileSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  // Updated filtered orders to include status filter
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter(o => 
       o.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       o.customer?.phone?.includes(searchTerm) || o.id?.toString().includes(searchTerm)
     );
     
-    // Apply status filter if active
     if (statusFilter) {
       filtered = filtered.filter(o => o.status === statusFilter);
     }
@@ -633,7 +713,6 @@ export default function App() {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
 
-  // Widgets
   const statusWidgets = [
     { label: 'Processing', key: 'Processing', icon: CircleDot, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
     { label: 'Shipped', key: 'Shipped', icon: Truck, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
@@ -642,37 +721,23 @@ export default function App() {
     { label: 'Returned', key: 'Returned', icon: RotateCcw, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
   ];
 
-  // Mobile Collapsible Section Component
-  const MobileSection = ({ title, children, isOpen, onToggle, icon: Icon }) => (
-    <div className="md:hidden bg-gray-800 rounded-xl border border-gray-700 mb-4 overflow-hidden">
-      <button 
-        onClick={onToggle}
-        className="w-full p-4 flex items-center justify-between text-left"
-      >
-        <div className="flex items-center gap-3">
-          <Icon size={20} className="text-gray-400" />
-          <span className="font-medium text-white">{title}</span>
-        </div>
-        {isOpen ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-      </button>
-      {isOpen && (
-        <div className="px-4 pb-4">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }`}</style>
       
-      {/* ABANDON CONFIRMATION MODAL */}
       <AbandonConfirmationModal 
           isOpen={showAbandonConfirm}
           onClose={() => setShowAbandonConfirm(false)}
           onConfirm={proceedWithAbandon}
           customerName={orderToAbandon?.customer?.name || 'Customer'}
+      />
+
+      <NoteModal 
+        isOpen={isNoteModalOpen}
+        onClose={() => setIsNoteModalOpen(false)}
+        onSave={handleSaveNote}
+        order={noteOrder}
+        initialNote={noteOrder?.note}
       />
 
       {selectedOrder && (
@@ -696,25 +761,10 @@ export default function App() {
         </div>
       </header>
       
-      {/* Stats Section - Mobile Collapsible */}
-      <MobileSection 
-        title="Statistics" 
-        isOpen={mobileSections.stats}
-        onToggle={() => toggleMobileSection('stats')}
-        icon={Package}
-      >
-        <div className="grid grid-cols-1 gap-4">
-          {[{ label: "Today's", value: stats.today }, { label: "Yesterday's", value: stats.yesterday }, { label: "This Month's", value: stats.thisMonth }].map((s, i) => (
-            <div key={i} className="bg-gray-700 rounded-xl p-4 border border-gray-600">
-              <h3 className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-1">{s.label}</h3>
-              <p className="text-2xl font-bold text-white">{s.value}</p>
-            </div>
-          ))}
-        </div>
-      </MobileSection>
-
-      {/* Desktop Stats */}
-      <div className="hidden md:grid md:grid-cols-3 gap-4 mb-6">
+      {/* 
+         STATISTICS SECTION 
+      */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[{ label: "Today's", value: stats.today }, { label: "Yesterday's", value: stats.yesterday }, { label: "This Month's", value: stats.thisMonth }].map((s, i) => (
           <div key={i} className="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg hover:border-gray-600 transition-colors">
             <h3 className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-1">{s.label}</h3>
@@ -723,40 +773,49 @@ export default function App() {
         ))}
       </div>
 
-      {/* Status Widgets Section - Mobile Collapsible */}
-      <MobileSection 
-        title="Order Status" 
-        isOpen={mobileSections.statusWidgets}
-        onToggle={() => toggleMobileSection('statusWidgets')}
-        icon={CircleDot}
-      >
-        <div className="grid grid-cols-2 gap-3">
-          {statusWidgets.map((w) => {
-            const Icon = w.icon;
-            const isActive = statusFilter === w.key;
-            return (
-              <div 
-                key={w.key} 
-                onClick={() => handleStatusWidgetClick(w.key)}
-                className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all hover:scale-[1.02] ${
-                  isActive 
-                    ? `${w.border} ${w.bg} ring-2 ring-white/20` 
-                    : `${w.border} ${w.bg} hover:border-white/50`
-                }`}
-              >
-                <div className={`p-2.5 rounded-lg bg-gray-900/50 ${w.color} shadow-sm`}><Icon size={20} /></div>
-                <div className="flex-1">
-                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{w.label}</p>
-                  <p className="text-xl font-bold text-white">{statusCounts[w.key] || 0}</p>
-                </div>
-                {isActive && <div className="w-2 h-2 bg-white rounded-full"></div>}
-              </div>
-            );
-          })}
-        </div>
-      </MobileSection>
+      {/* Mobile Collapsible View for Status Widgets */}
+      <div className="md:hidden bg-gray-800 rounded-xl border border-gray-700 mb-6 overflow-hidden">
+        <button 
+          onClick={() => setIsStatusWidgetOpen(!isStatusWidgetOpen)}
+          className="w-full p-4 flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <CircleDot size={20} className="text-gray-400" />
+            <span className="font-medium text-white">Order Status</span>
+          </div>
+          {isStatusWidgetOpen ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+        </button>
+        {isStatusWidgetOpen && (
+          <div className="px-4 pb-4">
+            <div className="grid grid-cols-2 gap-3">
+              {statusWidgets.map((w) => {
+                const Icon = w.icon;
+                const isActive = statusFilter === w.key;
+                return (
+                  <div 
+                    key={w.key} 
+                    onClick={() => handleStatusWidgetClick(w.key)}
+                    className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                      isActive 
+                        ? `${w.border} ${w.bg} ring-2 ring-white/20` 
+                        : `${w.border} ${w.bg} hover:border-white/50`
+                    }`}
+                  >
+                    <div className={`p-2.5 rounded-lg bg-gray-900/50 ${w.color} shadow-sm`}><Icon size={20} /></div>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-400 font-semibold uppercase">{w.label}</p>
+                      <p className="text-xl font-bold text-white">{statusCounts[w.key] || 0}</p>
+                    </div>
+                    {isActive && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* Desktop Status Widgets */}
+      {/* Desktop Grid View for Status Widgets */}
       <div className="hidden md:grid md:grid-cols-5 gap-3 mb-6">
          {statusWidgets.map((w) => {
             const Icon = w.icon;
@@ -796,34 +855,10 @@ export default function App() {
         </div>
       )}
       
-      {/* Search Section - Mobile Collapsible */}
-      <MobileSection 
-        title="Search & Filter" 
-        isOpen={mobileSections.search}
-        onToggle={() => toggleMobileSection('search')}
-        icon={Search}
-      >
-        <div className="space-y-4">
-          <div className="relative">
-            <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-400">Rows per page:</label>
-            <div className="relative">
-              <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-              </select>
-              <ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            </div>
-          </div>
-        </div>
-      </MobileSection>
-
-      {/* Desktop Search */}
-      <div className="hidden md:flex md:flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
+      {/* 
+         SEARCH SECTION 
+      */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
         <div className="relative w-full md:w-1/3">
           <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             className="inter-font w-full rounded-lg border border-gray-600 bg-gray-900 py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
@@ -841,73 +876,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* Table Section - Mobile Collapsible */}
-      <MobileSection 
-        title="Orders Table" 
-        isOpen={mobileSections.table}
-        onToggle={() => toggleMobileSection('table')}
-        icon={Package}
-      >
-        <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800">
-          <div className="overflow-x-auto">
-            <table className="inter-font min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-900/50">
-                <tr>
-                  {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Call', 'Action'].map((head) => (
-                    <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">{head}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700 bg-gray-800">
-                {paginatedOrders.length > 0 ? (
-                  paginatedOrders.map(order => {
-                    const { location, color } = getShippingLocation(order.shippingCost);
-                    return (
-                      <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
-                        <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
-                        <td className="whitespace-nowrap py-4 px-4">
-                          <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details"><Eye size={18} /></button>
-                        </td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm">
-                          <div className="font-medium text-white">{order.customer?.name}</div>
-                          <div className="text-xs text-gray-400 mt-0.5">{order.customer?.phone}</div>
-                        </td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm text-gray-400">
-                           <div className="flex items-center gap-1.5 text-xs bg-gray-900/50 px-2 py-1 rounded border border-gray-700 w-fit"><Clock size={12} />{formatTimeAgo(order.date)}</div>
-                        </td>
-                        <td className="py-4 px-4 text-sm text-gray-300 max-w-xs truncate" title={order.address}>{order.address}</td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm">
-                          <div className="text-white font-medium">{order.shippingMethod}</div>
-                          <div className={`flex items-center gap-1 ${color} text-xs mt-1`}><MapPin size={10} />{location} ({order.shippingCost}৳)</div>
-                        </td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm font-bold text-white">{order.totalValue} ৳</td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm"><StatusBadge status={order.status} /></td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm"><CallStatusDropdown currentStatus={order.callStatus} onStatusChange={(val) => handleCallStatusChange(order.id, val)} /></td>
-                        <td className="whitespace-nowrap py-4 px-4 text-sm"><ActionDropdown currentStatus={order.status} onStatusChange={(newStatus) => handleStatusChange(order.id, newStatus)} /></td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="10" className="py-12 text-center">
-                      <Package size={48} className="mx-auto text-gray-600 mb-3" />
-                      <p className="text-gray-400 text-lg">No orders found matching your criteria.</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </MobileSection>
-
-      {/* Desktop Table */}
-      <div className="hidden md:block overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
+      {/* 
+         TABLE SECTION
+      */}
+      <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
           <table className="inter-font min-w-full divide-y divide-gray-700">
             <thead className="bg-gray-900/50">
               <tr>
-                {['Order ID', 'View', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Call', 'Action'].map((head) => (
+                {['Order ID', 'View / Note', 'Customer', 'Time Ago', 'Address', 'Shipping', 'Total', 'Status', 'Call', 'Action'].map((head) => (
                   <th key={head} scope="col" className="py-4 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">{head}</th>
                 ))}
               </tr>
@@ -916,11 +893,22 @@ export default function App() {
               {paginatedOrders.length > 0 ? (
                 paginatedOrders.map(order => {
                   const { location, color } = getShippingLocation(order.shippingCost);
+                  const hasNote = order.note && order.note.trim().length > 0;
+                  
                   return (
                     <tr key={order.id} className="hover:bg-gray-700/40 transition-colors">
                       <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">#{order.orderId}</td>
                       <td className="whitespace-nowrap py-4 px-4">
-                        <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details"><Eye size={18} /></button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setSelectedOrder(order)} className="p-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="View Details"><Eye size={18} /></button>
+                            <button 
+                                onClick={() => openNoteModal(order)} 
+                                className={`p-2 rounded-lg transition-all ${hasNote ? 'bg-yellow-900/30 text-yellow-500 hover:bg-yellow-600 hover:text-white border border-yellow-500/30' : 'bg-gray-700 text-gray-400 hover:bg-yellow-600 hover:text-white'}`}
+                                title={hasNote ? "Edit Note" : "Add Note"}
+                            >
+                                <StickyNote size={18} />
+                            </button>
+                        </div>
                       </td>
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
                         <div className="font-medium text-white">{order.customer?.name}</div>
@@ -953,6 +941,7 @@ export default function App() {
           </table>
         </div>
       </div>
+      
       {totalPages > 1 && (
         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p className="text-gray-400">Showing <span className="font-medium text-white">{startItem}</span> to <span className="font-medium text-white">{endItem}</span> of <span className="font-medium text-white">{filteredOrders.length}</span></p>
