@@ -15,14 +15,16 @@ export default function HeroSection() {
     document.head.appendChild(googleFonts);
 
     return () => {
-      document.head.removeChild(fontAwesome);
-      document.head.removeChild(googleFonts);
+      // Optional cleanup
+      // document.head.removeChild(fontAwesome);
+      // document.head.removeChild(googleFonts);
     };
   }, []);
 
   return (
-    <div className="w-full min-h-screen bg-white text-[#495057] font-['Hind_Siliguri'] leading-[1.7]">
-      {/* Custom Animation for the Scarcity Text */}
+    <div className="w-full min-h-screen bg-white text-[#495057] font-['Hind_Siliguri'] leading-relaxed overflow-x-hidden">
+      
+      {/* Custom Styles for Animation */}
       <style>{`
         @keyframes pulse-orange {
           0% { transform: scale(1); text-shadow: 0 0 5px rgba(230, 81, 0, 0.3); }
@@ -32,79 +34,107 @@ export default function HeroSection() {
         .animate-pulse-orange {
           animation: pulse-orange 1.5s infinite;
         }
+        /* Custom scrollbar hiding if needed */
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
       `}</style>
 
-      <header className="bg-white py-[30px] lg:py-[50px]">
-        <div className="w-[90%] max-w-[1100px] mx-auto p-0 lg:grid lg:grid-cols-[45%_55%] lg:gap-[50px] lg:items-center">
+      <header className="bg-white py-8 lg:py-16 flex items-center justify-center min-h-[90vh] lg:min-h-screen">
+        <div className="container mx-auto px-4 lg:px-8 max-w-[1200px]">
           
-          {/* --- Book Showcase (Left Column on Desktop) --- */}
-          <div className="text-center px-2.5 mmb-5 lg:mb-0 lg:[grid-area:image]">
-            <img 
-              src="https://i.ibb.co.com/nNC0bmsw/with-background-Copy.webp" 
-              alt="Book Cover" 
-              className="w-full max-w-[300px] h-auto mx-auto mb-5 rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.15)] transition-transform duration-300 hover:scale-[1.03] block"
-            />
-            <a 
-              href="#read" 
-              className="inline-block w-full max-w-[300px] p-3 rounded-xl bg-[linear-gradient(45deg,#6842ff,#ff4ce1)] text-white no-underline font-semibold text-[1.1rem] shadow-[0_4px_10px_rgba(255,100,100,0.4)] transition-all duration-300 hover:-translate-y-0.5] hover:shadow-[0_6px_15px_rgba(255,100,100,0.5)] cursor-pointer text-center border-none"
-            >
-              কয়েকটি পৃষ্ঠা পড়ে দেখুন
-            </a>
-          </div>
-
-          {/* --- Content (Right Column on Desktop) --- */}
-          <div className="text-center px-0 lg:text-left lg:m-0 md:max-w-[600px] md:mx-auto lg:max-w-none lg:[grid-area:content]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             
-            <h1 className="text-[2.1rem] md:text-[2.5rem] text-[#343a40] mb-2.5 mt-5 lg:mt-0 text-left leading-[1.3]">
-              প্রফিট ফার্স্ট ফর এফ-কমার্স বিজনেস <span className="text-[1.5rem] text-[#6b7280]">(হার্ড কভার)</span>
-            </h1>
+            {/* --- LEFT COLUMN: Book Showcase --- */}
+            <div className="order-1 lg:order-1 flex flex-col items-center lg:items-center relative">
+              {/* Desktop Decorative Blob (Optional background effect) */}
+              <div className="hidden lg:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-50 rounded-full blur-3xl -z-10 opacity-60"></div>
 
-            {/* Reviews Box */}
-            <div className="bg-[#FFFBEB] rounded-xl p-[15px] mb-5 inline-block border border-[#FFE5B4] w-full -mt-4">
-              <div className="text-[#ffc107] text-[1.2rem] mb-[5px] flex justify-center lg:justify-start gap-1">
-                <i className="fas fa-star"></i>
-                <i className="fas fa-star"></i>
-                <i className="fas fa-star"></i>
-                <i className="fas fa-star"></i>
-                <i className="fas fa-star-half-alt"></i>
+              <div className="relative group perspective-1000">
+                <img 
+                  src="https://i.ibb.co.com/nNC0bmsw/with-background-Copy.webp" 
+                  alt="Book Cover" 
+                  className="w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[420px] h-auto mx-auto rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.2)] transition-transform duration-500 hover:scale-[1.02] hover:-translate-y-2 block"
+                />
               </div>
-              <p className="font-semibold text-[#856404] m-0">
-                <strong>4.8 out of 5</strong> | <strong>১</strong>,৭০০+ পাঠক রিভিউ
+
+              <a 
+                href="#read" 
+                className="mt-6 inline-block w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[420px] p-3.5 rounded-xl bg-[linear-gradient(45deg,#6842ff,#ff4ce1)] text-white no-underline font-semibold text-lg shadow-[0_4px_10px_rgba(104,66,255,0.3)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_20px_rgba(104,66,255,0.4)] cursor-pointer text-center border-none"
+              >
+                <i className="fas fa-book-open mr-2"></i> কয়েকটি পৃষ্ঠা পড়ে দেখুন
+              </a>
+            </div>
+
+            {/* --- RIGHT COLUMN: Content --- */}
+            <div className="order-2 lg:order-2 text-center lg:text-left flex flex-col items-center lg:items-start">
+              
+              {/* Rating Badge */}
+              <div className="bg-[#FFFBEB] rounded-lg px-4 py-2 mb-4 border border-[#FFE5B4] inline-flex items-center gap-2 shadow-sm">
+                <div className="text-[#ffc107] text-sm lg:text-base flex gap-1">
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star"></i>
+                  <i className="fas fa-star-half-alt"></i>
+                </div>
+                <div className="h-4 w-px bg-gray-300 mx-1"></div>
+                <p className="font-semibold text-[#856404] text-sm lg:text-base m-0">
+                  <strong>4.8</strong> (১,৭০০+ রিভিউ)
+                </p>
+              </div>
+
+              {/* Headline */}
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl lg:leading-[1.2] font-bold text-[#343a40] mb-2 lg:mb-4">
+                প্রফিট ফার্স্ট ফর <br className="hidden lg:block" />
+                <span className="text-[#2b2f35]">এফ-কমার্স বিজনেস</span>
+              </h1>
+              <p className="text-lg lg:text-xl text-[#6b7280] font-medium mb-6 lg:mb-8">
+                (হার্ড কভার এডিশন)
               </p>
+
+              {/* Price Box */}
+              <div className="bg-white lg:bg-[#F0FFF4]/50 border-2 border-dashed border-[#28a745] rounded-2xl p-4 lg:p-6 mb-8 relative w-full max-w-[400px] lg:max-w-none lg:w-auto lg:inline-block">
+                <div className="absolute -top-4 left-1/2 lg:left-8 -translate-x-1/2 lg:translate-x-0 bg-[#dc3545] text-white py-1 px-4 rounded-full text-sm font-bold shadow-md whitespace-nowrap">
+                  ২৫% ছাড়!
+                </div>
+                <div className="flex justify-center lg:justify-start items-end gap-4 pt-2">
+                  <span className="text-4xl lg:text-5xl font-bold text-[#28a745]">৳ ৪৯০</span>
+                  <span className="text-2xl lg:text-3xl line-through text-gray-400 mb-1">৳ ৭৯০</span>
+                </div>
+              </div>
+
+              {/* Scarcity / Stock Info */}
+              <div className="bg-linear-to-br from-[#fffde7] to-[#fff3e0] border-l-4 border-[#FFB74D] shadow-lg rounded-xl p-5 mb-8 text-center lg:text-left w-full max-w-[500px]">
+                <div className="text-[#15803D] font-semibold text-lg mb-1 flex items-center justify-center lg:justify-start gap-2">
+                  <i className="fas fa-check-circle"></i> স্টক সীমিত
+                </div>
+                <div className="animate-pulse-orange text-[#c2410c] font-bold text-2xl lg:text-3xl mb-2">
+                  🔥 দ্রুত করুন মাত্র <strong>৩</strong> কপি বাকি!
+                </div>
+                <div className="text-gray-700 font-medium text-lg">
+                  ⚡ অফার শেষ হয়ে যাবে দ্রুত করুন
+                </div>
+              </div>
+
+              {/* Main CTA Button */}
+              <a 
+                href="#order" 
+                className="group relative overflow-hidden inline-flex items-center justify-center w-full sm:w-auto min-w-[280px] bg-[#FF6F61] text-white py-4 px-8 text-xl lg:text-2xl font-bold rounded-xl transition-all duration-300 shadow-[0_8px_20px_rgba(255,111,97,0.4)] hover:bg-[#fa5a4b] hover:-translate-y-1 hover:shadow-[0_12px_25px_rgba(255,111,97,0.5)]"
+              >
+                <span className="relative z-10 flex items-center gap-3">
+                  <i className="fas fa-shopping-cart group-hover:animate-bounce"></i> 
+                  অর্ডার করতে ক্লিক করুন
+                </span>
+                {/* Button Shine Effect */}
+                <div className="absolute top-0 -left-full w-full h-full bg-linear-to-r from-transparent via-white/20 to-transparent skew-x-30 transition-all duration-700 group-hover:left-full"></div>
+              </a>
+              
+              <p className="mt-4 text-sm text-gray-500">
+                <i className="fas fa-lock mr-1"></i> ক্যাশ অন ডেলিভারি সুবিধা আছে
+              </p>
+
             </div>
-
-            {/* Price Box */}
-            <div className="bg-[#F0FFF4] border-2 border-dashed border-[#28a745] rounded-[12px] p-5 mb-5 relative text-center lg:text-left">
-              <div className="absolute -top-[15px] left-1/2 lg:left-[20%] -translate-x-1/2 bg-[#dc3545] text-white py-1.5 px-[15px] rounded-[20px] text-[1rem] font-bold shadow-[0_2px_5px_rgba(0,0,0,0.2)]">
-                ২৫% ছাড়
-              </div>
-              <div className="flex justify-center lg:justify-start items-center gap-[15px] mt-[15px]">
-                <span className="text-[3rem] font-bold text-[#28a745]">৳ ৪৯০</span>
-                <span className="text-[1.8rem] line-through text-[#999]">৳ ৭৯০</span>
-              </div>
-            </div>
-
-            {/* Stock Info */}
-            <div className="bg-[linear-gradient(135deg,#fffde7,#fff3e0)] border-l-[5px] border-[#FFB74D] shadow-[0_5px_20px_rgba(255,183,77,0.25)] rounded-[0.75rem] p-5 mb-6 text-center max-w-[500px] w-full mx-auto lg:mx-0">
-              <div className="text-[#15803D] font-semibold text-[1.25rem] lleading-7 mmb-2">
-                ✅ স্টক সীমিত
-              </div>
-              <div className="animate-pulse-orange text-[#c2410c] font-bold text-[1.5rem] leading-8 mb-4">
-                🔥দ্রুত করুন মাত্র <strong>৩</strong> কপি বই বাকি আছে!
-              </div>
-              <div className="text-[#1f2937] font-medium text-[1.25rem] lleading-7 mb-3">
-                ⚡ অফার শেষ হয়ে যাবে দ্রুত করুন
-              </div>
-            </div>
-
-            {/* CTA Button */}
-            <a 
-              href="#order" 
-              className="inline-block w-full bg-[#FF6F61] text-white py-[18px] px-[30px] text-[1.3rem] font-bold no-underline rounded-xl transition-all duration-300 shadow-[0_4px_15px_rgba(255,111,97,0.5)] cursor-pointer border-none hover:bg-[#E65C50] hover:-translate-y-[3px] hover:shadow-[0_6px_20px_rgba(255,111,97,0.6)] text-center"
-            >
-              <i className="fas fa-shopping-cart mr-2.5"></i> অর্ডার করতে এখানে ক্লিক করুন
-            </a>
-
           </div>
         </div>
       </header>
