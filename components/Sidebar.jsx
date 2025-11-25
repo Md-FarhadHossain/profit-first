@@ -1,5 +1,7 @@
 "use client"
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   BarChart3, 
@@ -8,95 +10,76 @@ import {
   Menu, 
   Package, 
   X,
-  ShoppingCart
+  ShoppingCart // 1. Imported new icon
 } from 'lucide-react';
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isMounted, setIsMounted] = useState(false); // New state to track if component is ready
-  
-  // Simulating navigation for this demo since we can't use next/navigation
-  const [currentPath, setCurrentPath] = useState('/dashboard');
+  const pathname = usePathname();
 
+  // Load collapsed state from localStorage on mount
   useEffect(() => {
-    // 1. Set initial state based on window and localStorage
-    const handleResize = () => {
-      // Check if window is defined to avoid errors
-      if (typeof window !== 'undefined') {
-        const mobile = window.innerWidth < 768;
-        setIsMobile(mobile);
-        if (!mobile) {
-          setIsMobileOpen(false);
-        }
-      }
-    };
-
-    // Load saved collapsed state
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem("sidebarCollapsed");
-      if (saved !== null) {
-        setIsCollapsed(JSON.parse(saved));
-      }
+    const saved = localStorage.getItem("sidebarCollapsed");
+    if (saved !== null) {
+      setIsCollapsed(JSON.parse(saved));
     }
-
-    // Check size immediately
-    handleResize();
-    
-    // 2. Set mounted to true to enable transitions after initial render
-    // This slight delay ensures the CSS has time to apply the initial state without animating
-    requestAnimationFrame(() => {
-      setIsMounted(true);
-    });
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Wrapper to handle toggle and save to localStorage
   const toggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
     localStorage.setItem("sidebarCollapsed", JSON.stringify(newState));
   };
 
-  // Close mobile menu when "route" changes
-  const handleNavigation = (path) => {
-    setCurrentPath(path);
+  // Handle responsive checks
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setIsMobileOpen(false);
+      }
+    };
+    
+    // Initial check
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
     setIsMobileOpen(false);
-  };
+  }, [pathname]);
 
   const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { label: 'Analytics', path: '/dashboard/analytics', icon: BarChart3 },
-    { label: 'Abandoned Orders', path: '/dashboard/abandoned-orders', icon: ShoppingCart }
+    { 
+      label: 'Dashboard', 
+      path: '/dashboard', 
+      icon: LayoutDashboard 
+    },
+    { 
+      label: 'Analytics', 
+      path: '/dashboard/analytics', 
+      icon: BarChart3 
+    },
+    // 2. Added the new path here
+    { 
+      label: 'Abandoned Orders', 
+      path: '/dashboard/abandoned-orders', 
+      icon: ShoppingCart 
+    }
   ];
 
-  const isActive = (path) => currentPath === path;
-
-  // Helper to determine width classes safely
-  const getSidebarWidth = () => {
-    // If we haven't mounted yet, default to desktop open width or hidden on mobile via CSS logic below
-    if (!isMounted) return 'w-64'; 
-    if (isMobile) return 'w-64';
-    return isCollapsed ? 'w-20' : 'w-64';
-  };
-
-  // Helper to determine transform/visibility classes
-  const getSidebarTransform = () => {
-    // CRITICAL FIX: If not mounted, force hide on mobile (CSS handles desktop)
-    // This prevents the mobile sidebar from flashing on screen during load
-    if (!isMounted) return 'max-md:-translate-x-full'; 
-    
-    if (isMobile) {
-      return isMobileOpen ? 'translate-x-0' : '-translate-x-full';
-    }
-    return 'translate-x-0';
-  };
+  const isActive = (path) => pathname === path;
 
   return (
     <>
-      {/* MOBILE TRIGGER BUTTON */}
+      {/* MOBILE TRIGGER BUTTON (Only visible on mobile) */}
       <button 
         onClick={() => setIsMobileOpen(true)}
         className="md:hidden fixed top-4 left-4 z-40 p-2 bg-gray-800 text-white rounded-lg border border-gray-700 shadow-lg hover:bg-gray-700 transition-colors"
@@ -104,7 +87,7 @@ export default function Sidebar() {
         <Menu size={20} />
       </button>
 
-      {/* MOBILE BACKDROP */}
+      {/* MOBILE BACKDROP OVERLAY */}
       {isMobile && isMobileOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-in fade-in duration-200"
@@ -117,13 +100,12 @@ export default function Sidebar() {
         className={`
           fixed md:static inset-y-0 left-0 z-50
           h-screen bg-gray-900 border-r border-gray-800 
+          transition-all duration-300 ease-in-out
           flex flex-col
-          
-          ${getSidebarWidth()}
-          ${getSidebarTransform()}
-
-          /* Only animate AFTER mounting to prevent the "slide in" glitch on refresh */
-          ${isMounted ? 'transition-all duration-300 ease-in-out' : ''}
+          ${isMobile 
+            ? (isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64') 
+            : (isCollapsed ? 'w-20' : 'w-64')
+          }
         `}
       >
         {/* LOGO AREA */}
@@ -160,13 +142,9 @@ export default function Sidebar() {
           {navItems.map((item) => {
             const active = isActive(item.path);
             return (
-              <a 
+              <Link 
                 key={item.path} 
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNavigation(item.path);
-                }}
+                href={item.path}
                 className={`
                   relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group
                   ${active 
@@ -190,12 +168,12 @@ export default function Sidebar() {
                     {item.label}
                   </div>
                 )}
-              </a>
+              </Link>
             );
           })}
         </nav>
 
-        {/* FOOTER / COLLAPSE TRIGGER */}
+        {/* FOOTER / COLLAPSE TRIGGER (Desktop Only) */}
         {!isMobile && (
           <div className="p-4 border-t border-gray-800 flex justify-end">
             <button
