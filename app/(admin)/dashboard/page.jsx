@@ -1,6 +1,5 @@
 "use client";
-
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Search,
   ChevronLeft,
@@ -36,7 +35,8 @@ import {
   AlertTriangle,
   ArrowLeftCircle,
   StickyNote,
-  Save, // <--- Icons for Notes
+  Save,
+  Edit, // <--- Imported Edit icon
 } from "lucide-react";
 import { UAParser } from "ua-parser-js";
 
@@ -76,7 +76,6 @@ const getDeepUserAgentInfo = (uaString) => {
   if (!uaString) return null;
   const parser = new UAParser(uaString);
   const result = parser.getResult();
-
   const rawModel = result.device.model || "";
   const marketingName = DEVICE_CODEX[rawModel] || rawModel || "Unknown Device";
   const vendor = result.device.vendor || "Generic";
@@ -149,6 +148,7 @@ const StatusBadge = ({ status }) => {
     Abandoned: { icon: <AlertTriangle size={14} />, color: "bg-yellow-600" },
   };
   const config = statusConfig[status] || statusConfig.Processing;
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white ${config.color} shadow-sm`}
@@ -218,6 +218,7 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
       "border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500",
   };
   const currentStyle = statusStyles[currentStatus] || statusStyles.Default;
+
   return (
     <div className="relative w-40">
       <select
@@ -287,6 +288,7 @@ const AbandonConfirmationModal = ({
   customerName,
 }) => {
   if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl transform scale-100">
@@ -357,7 +359,6 @@ const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
             <X size={20} />
           </button>
         </div>
-
         {/* Body */}
         <div className="p-6">
           <label className="block text-sm text-gray-400 mb-2">
@@ -396,7 +397,21 @@ const OrderModal = ({
   onStatusChange,
   onCallStatusChange,
   onShippingMethodChange,
+  onPriceChange, // <--- New prop for price update
 }) => {
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [tempPrice, setTempPrice] = useState(order?.totalValue || 0);
+
+  useEffect(() => {
+    setTempPrice(order?.totalValue || 0);
+  }, [order]);
+
+  const handleSavePrice = () => {
+    if (tempPrice < 0) return;
+    onPriceChange(tempPrice);
+    setIsEditingPrice(false);
+  };
+
   if (!order) return null;
   const uaData = getDeepUserAgentInfo(
     order.clientInfo?.userAgent || order.userAgent || ""
@@ -524,6 +539,7 @@ const OrderModal = ({
                 </div>
               </div>
 
+              {/* PAYMENT CARD WITH EDIT FUNCTIONALITY */}
               <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 flex flex-col">
                 <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
                   <DollarSign size={14} className="text-gray-400" />
@@ -534,15 +550,54 @@ const OrderModal = ({
                 <div className="p-4 flex-1 space-y-2">
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Subtotal</span>
+                    {/* Dynamically calculate subtotal even during edit if needed, or just keep as static derived */}
                     <span>{order.totalValue - order.shippingCost}</span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Shipping</span>
                     <span>{order.shippingCost}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-gray-700/50">
-                    <span>Total</span>
-                    <span className="text-green-400">{order.totalValue} ৳</span>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-700/50">
+                    <span className="text-sm font-bold text-white">Total</span>
+                    {isEditingPrice ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={tempPrice}
+                          onChange={(e) => setTempPrice(Number(e.target.value))}
+                          className="w-20 bg-gray-950 border border-blue-500 rounded px-2 py-0.5 text-sm text-right text-white focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleSavePrice}
+                          className="p-1 text-green-400 hover:bg-green-500/20 rounded"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsEditingPrice(false);
+                            setTempPrice(order.totalValue);
+                          }}
+                          className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-400 text-sm font-bold">
+                          {order.totalValue} ৳
+                        </span>
+                        <button
+                          onClick={() => setIsEditingPrice(true)}
+                          className="text-gray-500 hover:text-white transition-colors"
+                          title="Edit Price"
+                        >
+                          <Edit size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -554,7 +609,6 @@ const OrderModal = ({
             {uaData ? (
               <div className="bg-linear-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 overflow-hidden shadow-lg relative">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-
                 <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
                   <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
                     <Smartphone size={24} />
@@ -574,7 +628,6 @@ const OrderModal = ({
                     </div>
                   </div>
                 </div>
-
                 <div className="p-5 border-b border-gray-700/50 flex gap-4 relative z-10">
                   <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
                     <Share2 size={24} />
@@ -615,7 +668,6 @@ const OrderModal = ({
             >
               Close
             </button>
-
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex items-center gap-3 bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50">
                 <span className="text-xs font-medium text-gray-400 pl-2">
@@ -666,7 +718,6 @@ const formatTimeAgo = (dateString) => {
   const date = new Date(dateString);
   const now = new Date();
   const seconds = Math.round((now - date) / 1000);
-
   if (isNaN(seconds) || seconds < 0) return "Just now";
   const minutes = Math.round(seconds / 60);
   const hours = Math.round(minutes / 60);
@@ -730,7 +781,6 @@ export default function App() {
           "https://profit-first-server.vercel.app/orders"
         );
         const data = await res.json();
-
         const transformedData = data.map((order, index) => ({
           id: order._id || index,
           customer: { name: order.name || "N/A", phone: order.number || "N/A" },
@@ -744,8 +794,9 @@ export default function App() {
           clientInfo: order.clientInfo || {},
           userAgent: order.clientInfo?.userAgent || order.userAgent || "",
           date: order.createdAt || new Date().toISOString(),
-          note: order.note || "", // <--- Added note field
+          note: order.note || "",
         }));
+
         setOrders(transformedData);
 
         const now = new Date();
@@ -792,6 +843,7 @@ export default function App() {
     );
     if (selectedOrder?.id === id)
       setSelectedOrder((prev) => ({ ...prev, status: newStatus }));
+
     try {
       await fetch(`https://profit-first-server.vercel.app/orders/${id}`, {
         method: "PATCH",
@@ -805,6 +857,7 @@ export default function App() {
 
   const proceedWithAbandon = async () => {
     if (!orderToAbandon) return;
+
     if (
       typeof orderToAbandon.id === "number" ||
       orderToAbandon.id.length < 10
@@ -857,6 +910,7 @@ export default function App() {
     );
     if (selectedOrder?.id === id)
       setSelectedOrder((prev) => ({ ...prev, callStatus: newCallStatus }));
+
     try {
       await fetch(
         `https://profit-first-server.vercel.app/orders/${id}/call-status`,
@@ -876,7 +930,6 @@ export default function App() {
       (option) => option.value === newMethod
     );
     if (!selectedOption) return;
-
     const newCost = selectedOption.cost;
 
     setOrders((prev) =>
@@ -891,7 +944,6 @@ export default function App() {
           : o
       )
     );
-
     if (selectedOrder?.id === id)
       setSelectedOrder((prev) => ({
         ...prev,
@@ -917,23 +969,49 @@ export default function App() {
     }
   };
 
-  // --- NEW NOTE SAVE HANDLER ---
+  // --- NEW PRICE CHANGE HANDLER ---
+  const handlePriceChange = async (id, newPrice) => {
+    const price = Number(newPrice);
+    if (isNaN(price)) return;
+
+    // Optimistically update
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, totalValue: price } : o))
+    );
+
+    // Update selected order if open
+    if (selectedOrder?.id === id) {
+      setSelectedOrder((prev) => ({
+        ...prev,
+        totalValue: price,
+      }));
+    }
+
+    try {
+      // Assuming a standard endpoint for price update exists or is handled here
+      await fetch(
+        `https://profit-first-server.vercel.app/orders/${id}/price`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ totalValue: price }),
+        }
+      );
+    } catch (e) {
+      console.error("Failed to update price", e);
+    }
+  };
+
   const handleSaveNote = async (id, noteText) => {
-    // 1. Optimistic Update (Update UI instantly)
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, note: noteText } : o))
     );
-
-    // Update selected order if it's the one being edited
     if (selectedOrder?.id === id) {
       setSelectedOrder((prev) => ({ ...prev, note: noteText }));
     }
-
-    // Close Modal
     setIsNoteModalOpen(false);
     setNoteOrder(null);
 
-    // 2. Send to Backend
     try {
       await fetch(`https://profit-first-server.vercel.app/orders/${id}/note`, {
         method: "PATCH",
@@ -971,7 +1049,6 @@ export default function App() {
     if (statusFilter) {
       filtered = filtered.filter((o) => o.status === statusFilter);
     }
-
     return filtered;
   }, [orders, searchTerm, statusFilter]);
 
@@ -1057,6 +1134,7 @@ export default function App() {
           onShippingMethodChange={(val) =>
             handleShippingMethodChange(selectedOrder.id, val)
           }
+          onPriceChange={(val) => handlePriceChange(selectedOrder.id, val)}
         />
       )}
 
@@ -1075,9 +1153,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 
-         STATISTICS SECTION 
-      */}
+      {/* STATISTICS SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
           { label: "Today's", value: stats.today },
@@ -1202,9 +1278,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 
-         SEARCH SECTION 
-      */}
+      {/* SEARCH SECTION */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
         <div className="relative w-full md:w-1/3">
           <input
@@ -1242,9 +1316,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 
-         TABLE SECTION
-      */}
+      {/* TABLE SECTION */}
       <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
           <table className="inter-font min-w-full divide-y divide-gray-700">
@@ -1278,7 +1350,6 @@ export default function App() {
                   const { location, color } = getShippingLocation(
                     order.shippingCost
                   );
-
                   return (
                     <tr
                       key={order.id}

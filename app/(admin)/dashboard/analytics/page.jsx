@@ -1,4 +1,5 @@
 "use client"
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -7,7 +8,8 @@ import {
 import { 
   ArrowUpRight, ArrowDownRight, Calendar, TrendingUp, 
   Package, DollarSign, Activity, Truck, MapPin, ChevronDown, 
-  Smartphone, Monitor, Cpu, Share2, Globe, ShieldCheck, CheckCircle, Send
+  Smartphone, Monitor, Cpu, Share2, Globe, ShieldCheck, CheckCircle, Send,
+  Megaphone
 } from 'lucide-react';
 import { format, subDays, isSameDay, startOfDay } from 'date-fns';
 import { UAParser } from 'ua-parser-js'; 
@@ -93,18 +95,7 @@ const aggregateCounts = (dataArray, keyFetcher, topLimit = 5) => {
     .map(([name, value]) => ({ name, value, percentage: ((value/total)*100).toFixed(1) }))
     .sort((a, b) => b.value - a.value);
 
-  const topItems = sorted.slice(0, topLimit);
-  const otherCount = sorted.slice(topLimit).reduce((acc, curr) => acc + curr.value, 0);
-
-  if (otherCount > 0) {
-    topItems.push({ 
-      name: 'Others', 
-      value: otherCount, 
-      percentage: ((otherCount/total)*100).toFixed(1) 
-    });
-  }
-
-  return topItems;
+  return sorted.slice(0, topLimit);
 };
 
 
@@ -137,8 +128,9 @@ export default function AnalyticsDashboard() {
     const today = startOfDay(new Date());
     const cutoffDate = subDays(today, timeRange);
 
-    // --- BASIC METRICS VARIABLES ---
-    let totalRevenue = 0;
+    // --- VARIABLES ---
+    let totalRevenue = 0; 
+    let rangeRevenue = 0; 
     let todayOrders = 0;
     let yesterdayOrders = 0;
     
@@ -146,6 +138,10 @@ export default function AnalyticsDashboard() {
     let rangeOrdersCount = 0;
     let rangeShippedCount = 0;
     let rangeDeliveredCount = 0;
+    
+    // Marketing Counters
+    let paidCount = 0;
+    let organicCount = 0;
 
     const statusDist = { Processing: 0, Shipped: 0, Delivered: 0, Cancelled: 0, Returned: 0 };
     const locationDist = { InsideDhaka: 0, OutsideDhaka: 0, Other: 0 };
@@ -154,7 +150,6 @@ export default function AnalyticsDashboard() {
     const uaDataList = [];
 
     // --- CHART DATA SKELETON ---
-    // Create an array of objects for every day in the range
     const chartDataArr = Array.from({ length: timeRange }, (_, i) => {
       const d = subDays(today, timeRange - 1 - i);
       return { 
@@ -176,11 +171,11 @@ export default function AnalyticsDashboard() {
       
       const isCreatedInRange = createdDate >= cutoffDate;
 
-      // 2. Global Calculation (Revenue)
-      // Note: Assuming we want revenue from all time, or filter here if needed
-      totalRevenue += parseFloat(order.totalValue) || 0;
+      // 2. Revenue Calculation
+      const orderValue = parseFloat(order.totalValue) || 0;
+      totalRevenue += orderValue; 
 
-      // 3. Growth Metrics (Created Date)
+      // 3. Growth Metrics 
       if (isSameDay(createdDate, today)) todayOrders++;
       if (isSameDay(createdDate, subDays(today, 1))) yesterdayOrders++;
 
@@ -189,39 +184,51 @@ export default function AnalyticsDashboard() {
       // A. Order Creation Logic
       if (isCreatedInRange) {
          rangeOrdersCount++;
+         rangeRevenue += orderValue;
+
          const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, createdDate));
          if (dayStat) dayStat.orders += 1;
 
-         // Status & Location Distribution (based on current orders in view)
-         const shippingCost = parseFloat(order.shippingCost) || 0;
-         const status = order.status || 'Processing';
-
          // Location
+         const shippingCost = parseFloat(order.shippingCost) || 0;
          if (shippingCost === 60) locationDist.InsideDhaka++;
          else if (shippingCost === 99) locationDist.OutsideDhaka++;
          else locationDist.Other++;
 
          // Status
+         const status = order.status || 'Processing';
          if (statusDist[status] !== undefined) statusDist[status]++;
          else statusDist['Processing']++;
+
+         // --- PAID VS ORGANIC LOGIC (UPDATED) ---
+         const marketing = order.marketing;
+
+         // Logic: If marketing is MISSING OR utm_medium is 'paid' -> Paid Customer.
+         // Otherwise (marketing exists but not 'paid') -> Organic Customer.
+         const isPaid = !marketing || marketing.utm_medium === 'paid';
+
+         if (isPaid) {
+            paidCount++;
+         } else {
+            organicCount++;
+         }
       }
 
-      // B. Shipped Logic (Based on shippedAt time)
+      // B. Shipped Logic 
       if (shippedDate && shippedDate >= cutoffDate) {
         rangeShippedCount++;
         const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, shippedDate));
         if (dayStat) dayStat.shipped += 1;
       }
 
-      // C. Delivered Logic (Based on deliveredAt time)
+      // C. Delivered Logic 
       if (deliveredDate && deliveredDate >= cutoffDate) {
         rangeDeliveredCount++;
         const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, deliveredDate));
         if (dayStat) dayStat.delivered += 1;
       }
 
-      // 5. UA Parsing (Tech Analytics)
-      // Using all orders for better sample size
+      // 5. UA Parsing 
       const uaString = order.clientInfo?.userAgent || order.userAgent || '';
       if (uaString) {
         const parser = new UAParser(uaString);
@@ -267,10 +274,14 @@ export default function AnalyticsDashboard() {
     const growth = yesterdayOrders === 0 ? 100 : ((todayOrders - yesterdayOrders) / yesterdayOrders) * 100;
     const totalLocations = locationDist.InsideDhaka + locationDist.OutsideDhaka + locationDist.Other;
     const insidePct = totalLocations > 0 ? ((locationDist.InsideDhaka / totalLocations) * 100).toFixed(0) : 0;
+    
+    const totalMarketing = paidCount + organicCount;
+    const paidPct = totalMarketing > 0 ? ((paidCount / totalMarketing) * 100).toFixed(0) : 0;
 
     return {
       totalOrders: orders.length,
       rangeOrdersCount,
+      rangeRevenue, 
       rangeShippedCount,
       rangeDeliveredCount,
       totalRevenue,
@@ -286,7 +297,12 @@ export default function AnalyticsDashboard() {
         { name: 'Inside Dhaka', value: locationDist.InsideDhaka, color: '#14B8A6' }, 
         { name: 'Outside Dhaka', value: locationDist.OutsideDhaka, color: '#F59E0B' }, 
       ],
+      marketingData: [
+        { name: 'Paid Ads', value: paidCount, color: '#F43F5E' }, 
+        { name: 'Organic', value: organicCount, color: '#10B981' }
+      ],
       insidePct,
+      paidPct,
       osData,
       modelData,
       androidVersions,
@@ -323,17 +339,23 @@ export default function AnalyticsDashboard() {
       </header>
 
       {/* KPI CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <StatCard 
+          title="Total Revenue" 
+          value={`৳${analytics?.rangeRevenue?.toLocaleString() || 0}`} 
+          icon={DollarSign}
+          color={{ bg: 'bg-green-500', text: 'text-green-400' }}
+        />
         <StatCard 
           title="Total Orders" value={analytics?.rangeOrdersCount} icon={Package}
           color={{ bg: 'bg-blue-500', text: 'text-blue-400' }}
         />
         <StatCard 
-          title="Shipped (Range)" value={analytics?.rangeShippedCount} icon={Send}
+          title="Shipped" value={analytics?.rangeShippedCount} icon={Send}
           color={{ bg: 'bg-purple-500', text: 'text-purple-400' }}
         />
         <StatCard 
-          title="Delivered (Range)" value={analytics?.rangeDeliveredCount} icon={CheckCircle}
+          title="Delivered" value={analytics?.rangeDeliveredCount} icon={CheckCircle}
           color={{ bg: 'bg-emerald-500', text: 'text-emerald-400' }}
         />
         <StatCard 
@@ -378,44 +400,80 @@ export default function AnalyticsDashboard() {
         </Card>
       </div>
 
-      {/* SECONDARY STATS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* GEOGRAPHY */}
+      {/* SECONDARY STATS - 3 COLUMNS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* 1. GEOGRAPHY */}
         <Card className="min-h-[300px]">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-white">Geography</h3>
                 <MapPin size={18} className="text-gray-500" />
             </div>
-            <div className="flex items-center gap-8 h-full">
-                <div className="w-[180px] h-[180px] relative">
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+                <div className="w-40 h-40 relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                            <Pie data={analytics?.locationData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                            <Pie data={analytics?.locationData} innerRadius={55} outerRadius={75} paddingAngle={5} dataKey="value">
                                 {analytics?.locationData.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
                             </Pie>
                             <Tooltip content={<CustomTooltip />} />
                         </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                        <span className="text-3xl font-bold text-white">{analytics?.insidePct}%</span>
+                        <span className="text-2xl font-bold text-white">{analytics?.insidePct}%</span>
                         <span className="text-[10px] text-gray-500 uppercase">Dhaka</span>
                     </div>
                 </div>
-                <div className="flex-1 space-y-3">
+                <div className="flex gap-4">
                     {analytics?.locationData.map((item) => (
-                        <div key={item.name} className="flex justify-between items-center p-3 rounded-lg bg-gray-900/40 border border-gray-700/50">
-                            <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></div>
-                                <span className="text-sm text-gray-300">{item.name}</span>
+                         <div key={item.name} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{backgroundColor: item.color}}></div>
+                            <div className="flex flex-col">
+                                <span className="text-xs text-gray-400">{item.name}</span>
+                                <span className="text-sm font-bold text-white">{item.value}</span>
                             </div>
-                            <span className="font-bold text-white">{item.value}</span>
                         </div>
                     ))}
                 </div>
             </div>
         </Card>
 
-        {/* STATUS */}
+        {/* 2. ACQUISITION SOURCE (PAID VS ORGANIC) */}
+        <Card className="min-h-[300px]">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-white">Acquisition Source</h3>
+                <Megaphone size={18} className="text-gray-500" />
+            </div>
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+                <div className="w-40 h-40 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie data={analytics?.marketingData} innerRadius={55} outerRadius={75} paddingAngle={5} dataKey="value">
+                                {analytics?.marketingData.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                        <span className="text-2xl font-bold text-white">{analytics?.paidPct}%</span>
+                        <span className="text-[10px] text-gray-500 uppercase">Paid</span>
+                    </div>
+                </div>
+                <div className="flex gap-4">
+                    {analytics?.marketingData.map((item) => (
+                        <div key={item.name} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{backgroundColor: item.color}}></div>
+                            <div className="flex flex-col">
+                                <span className="text-xs text-gray-400">{item.name}</span>
+                                <span className="text-sm font-bold text-white">{item.value}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </Card>
+
+        {/* 3. STATUS */}
         <Card className="min-h-[300px]">
              <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-white">Order Status</h3>
@@ -436,6 +494,7 @@ export default function AnalyticsDashboard() {
                 </ResponsiveContainer>
             </div>
         </Card>
+
       </div>
 
       {/* --- TECH INTELLIGENCE SECTION --- */}
