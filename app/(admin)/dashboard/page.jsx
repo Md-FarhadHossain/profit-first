@@ -1396,9 +1396,10 @@ export default function App() {
                           {order.customer?.name}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">
+                          <span className="hidden lg:block md:block">{order.customer?.phone}</span>
                           <a
                             href={`tel:${order.customer?.phone}`}
-                            className="text-xs text-gray-400 mt-0.5 hover:text-blue-500 hover:underline cursor-pointer block"
+                            className="text-xs text-gray-400 mt-0.5 hover:text-blue-500 hover:underline cursor-pointer block lg:hidden md:hidden"
                           >
                             {order.customer?.phone}
                           </a>
