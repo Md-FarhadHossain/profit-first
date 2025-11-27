@@ -10,6 +10,7 @@ import { XCircle, MessageCircle, Facebook } from "lucide-react";
 const getDeviceId = () => {
   if (typeof window !== "undefined") {
     let deviceId = localStorage.getItem("device_id");
+    // If no ID exists, create a robust one and save it
     if (!deviceId) {
       deviceId = "dev_" + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
       localStorage.setItem("device_id", deviceId);
@@ -35,6 +36,8 @@ const PRODUCT_CATEGORY = "Books";
 const CURRENCY = "BDT";
 const POST_ID = 913;
 const POST_TYPE = "product";
+// IMPORTANT: Make sure this URL points to your updated Backend
+const API_URL = "https://profit-first-server.vercel.app"; 
 
 const HeroSection = () => {
   const [shipping, setShipping] = useState("outside-dhaka");
@@ -101,6 +104,7 @@ const HeroSection = () => {
             landing_page: window.location.href,
         });
 
+        // This ensures the device ID is loaded from LocalStorage
         const deviceId = getDeviceId();
         let visits = parseInt(localStorage.getItem("visit_count") || "0");
         let firstVisit = localStorage.getItem("first_visit_date");
@@ -115,7 +119,7 @@ const HeroSection = () => {
 
         setBehaviorData({
             visit_count: visits,
-            device_id: deviceId,
+            device_id: deviceId, // This ID is what we use to block them
             first_visit_date: firstVisit
         });
     };
@@ -147,8 +151,6 @@ const HeroSection = () => {
 
     // 2. Set a timer to wait 1.5 seconds after typing stops (Debounce)
     const autoSaveTimer = setTimeout(async () => {
-        console.log("Saving partial order data...");
-        
         // Calculate missing shipping variables matching handleOrder logic
         const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
         const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
@@ -172,7 +174,7 @@ const HeroSection = () => {
         };
 
         try {
-            await fetch("https://profit-first-server.vercel.app/save-partial-order", {
+            await fetch(`${API_URL}/save-partial-order`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(partialData)
@@ -240,14 +242,13 @@ const HeroSection = () => {
     if (name === "billing_address_1") setFormData(prev => ({ ...prev, address: value }));
   };
 
-  // --- MODIFIED ORDER HANDLER ---
+  // --- MODIFIED ORDER HANDLER (INCLUDES BLOCK CHECK) ---
   const handleOrder = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
-      // Retrieve data from STATE, not event.target (since we controlled the inputs)
       const name = formData.name;
       const number = formData.number;
       const address = formData.address;
@@ -269,11 +270,11 @@ const HeroSection = () => {
         postId: POST_ID.toString(),
         postType: POST_TYPE,
         
-        // ENRICHED DATA
+        // This 'clientInfo' is what the Backend checks to block the user
         clientInfo: { 
             ip: clientInfo.ip, 
             userAgent: clientInfo.userAgent,
-            deviceId: behaviorData.device_id,
+            deviceId: behaviorData.device_id, // CRITICAL: This sends the ID to block
             visitCount: behaviorData.visit_count,
             firstVisit: behaviorData.first_visit_date 
         },
@@ -281,7 +282,7 @@ const HeroSection = () => {
       };
 
       // POST to Server
-      const response = await fetch("https://profit-first-server.vercel.app/orders", {
+      const response = await fetch(`${API_URL}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderData),
@@ -289,7 +290,16 @@ const HeroSection = () => {
 
       const result = await response.json();
 
-      // CHECK FOR DUPLICATE ORDER FLAG
+      // ==========================================
+      // 1. CHECK IF USER IS BLOCKED (403 STATUS)
+      // ==========================================
+      if (response.status === 403) {
+        alert("Security Alert: Unable to process order. Please contact support.");
+        setIsSubmitting(false);
+        return; // STOP HERE
+      }
+
+      // 2. CHECK FOR DUPLICATE ORDER FLAG
       if (response.status === 409 || result.reason === "active_order_exists") {
         console.warn("Duplicate order detected");
         setShowDuplicateModal(true);
