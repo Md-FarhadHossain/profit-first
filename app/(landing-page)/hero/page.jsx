@@ -6,11 +6,53 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { XCircle, MessageCircle, Facebook } from "lucide-react"; 
 
+// --- FAKE 404 COMPONENT (The Trap) ---
+// This mimics a standard "Page Not Found" to fool the scammer
+const Fake404 = () => {
+    return (
+        <div style={{
+            height: "100vh",
+            width: "100vw",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            color: "#000",
+            backgroundColor: "#fff",
+            textAlign: "center",
+            padding: "20px",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            zIndex: 9999
+        }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+                <h1 style={{ 
+                    borderRight: "1px solid rgba(0, 0, 0, .3)", 
+                    marginRight: "20px", 
+                    paddingRight: "20px", 
+                    fontSize: "24px", 
+                    fontWeight: "500",
+                    display: "inline-block",
+                }}>404</h1>
+                <div style={{ 
+                    display: "inline-block", 
+                    textAlign: "left", 
+                }}>
+                    <h2 style={{ fontSize: "14px", fontWeight: "normal", margin: 0, padding: 0 }}>
+                        This page could not be found.
+                    </h2>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- HELPER: GENERATE OR GET DEVICE ID ---
 const getDeviceId = () => {
   if (typeof window !== "undefined") {
     let deviceId = localStorage.getItem("device_id");
-    // If no ID exists, create a robust one and save it
     if (!deviceId) {
       deviceId = "dev_" + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
       localStorage.setItem("device_id", deviceId);
@@ -20,7 +62,6 @@ const getDeviceId = () => {
   return "unknown";
 };
 
-// --- GTM HELPER FUNCTION ---
 const gtmEvent = (eventName, eventData = {}) => {
   if (typeof window !== "undefined") {
     window.dataLayer = window.dataLayer || [];
@@ -28,7 +69,6 @@ const gtmEvent = (eventName, eventData = {}) => {
   }
 };
 
-// --- PRODUCT DETAILS ---
 const PRODUCT_PRICE = 490;
 const PRODUCT_ID = "973";
 const PRODUCT_NAME = "Profit First for F-Commerce";
@@ -36,132 +76,122 @@ const PRODUCT_CATEGORY = "Books";
 const CURRENCY = "BDT";
 const POST_ID = 913;
 const POST_TYPE = "product";
-// IMPORTANT: Make sure this URL points to your updated Backend
 const API_URL = "https://profit-first-server.vercel.app"; 
 
 const HeroSection = () => {
+  // --- STATE FOR BANNING ---
+  const [isBanned, setIsBanned] = useState(false);
+  const [isCheckingBan, setIsCheckingBan] = useState(true);
+
   const [shipping, setShipping] = useState("outside-dhaka");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
   
-  // 1. NEW: State to track user input in real-time
-  const [formData, setFormData] = useState({
-    name: "",
-    number: "",
-    address: ""
-  });
-
-  // 2. State for Client Technical Info (IP/UA)
+  const [formData, setFormData] = useState({ name: "", number: "", address: "" });
   const [clientInfo, setClientInfo] = useState({ ip: null, userAgent: null });
-
-  // 3. State for Marketing Data (Ads, Source)
   const [marketingData, setMarketingData] = useState({
-    utm_source: "direct",
-    utm_medium: "none",
-    utm_campaign: "none",
-    referrer: "direct",
-    landing_page: "",
+    utm_source: "direct", utm_medium: "none", utm_campaign: "none", referrer: "direct", landing_page: "",
   });
-
-  // 4. State for User Behavior (Visits, Device ID)
   const [behaviorData, setBehaviorData] = useState({
-    visit_count: 1,
-    device_id: "",
-    first_visit_date: "",
+    visit_count: 1, device_id: "", first_visit_date: "",
   });
   
-  // Duplicate Order Modal State
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-  
   const sectionRef = useRef(null);
   const hasAddedToCart = useRef(false); 
 
-  // --- INITIAL DATA FETCHING & TRACKING ---
+  // --- 1. INITIAL LOAD: IP FETCH & BAN CHECK ---
   useEffect(() => {
-    const ua = navigator.userAgent;
-    // A. Fetch IP
-    const fetchIp = async () => {
-      try {
-        const response = await fetch("/api/ip");
-        if (!response.ok) throw new Error("Failed to fetch IP");
-        const data = await response.json();
-        return data.ip;
-      } catch (error) {
-        console.error("Could not fetch IP:", error);
-        return "0.0.0.0";
-      }
-    };
+    const performChecks = async () => {
+        try {
+            // A. Fetch IP
+            let ip = "0.0.0.0";
+            try {
+                const ipRes = await fetch("/api/ip"); // Or use 'https://api.ipify.org?format=json' if /api/ip is missing
+                const ipData = await ipRes.json();
+                ip = ipData.ip;
+            } catch (e) { 
+                console.error("IP Fetch Error", e); 
+            }
 
-    // B. Capture Analytics
-    const captureAnalytics = () => {
-        const params = new URLSearchParams(window.location.search);
-        
-        setMarketingData({
-            utm_source: params.get("utm_source") || "direct",
-            utm_medium: params.get("utm_medium") || "none",
-            utm_campaign: params.get("utm_campaign") || "none",
-            referrer: document.referrer || "direct",
-            landing_page: window.location.href,
-        });
+            // B. Get Device ID
+            const deviceId = getDeviceId();
+            const ua = navigator.userAgent;
 
-        // This ensures the device ID is loaded from LocalStorage
-        const deviceId = getDeviceId();
-        let visits = parseInt(localStorage.getItem("visit_count") || "0");
-        let firstVisit = localStorage.getItem("first_visit_date");
+            // C. CRITICAL: CHECK IF BANNED IMMEDIATELY
+            const banRes = await fetch(`${API_URL}/check-ban-status?ip=${ip}&deviceId=${deviceId}`);
+            const banData = await banRes.json();
 
-        visits += 1; 
-        localStorage.setItem("visit_count", visits.toString());
+            if (banData.banned) {
+                console.warn("⛔ User is banned. Access restricted.");
+                setIsBanned(true);
+                setIsCheckingBan(false);
+                return; // STOP EXECUTION
+            }
 
-        if (!firstVisit) {
-            firstVisit = new Date().toISOString();
-            localStorage.setItem("first_visit_date", firstVisit);
+            // D. If not banned, continue setting up tracking
+            setClientInfo({ ip, userAgent: ua });
+            
+            // Setup Analytics
+            const params = new URLSearchParams(window.location.search);
+            setMarketingData({
+                utm_source: params.get("utm_source") || "direct",
+                utm_medium: params.get("utm_medium") || "none",
+                utm_campaign: params.get("utm_campaign") || "none",
+                referrer: document.referrer || "direct",
+                landing_page: window.location.href,
+            });
+
+            let visits = parseInt(localStorage.getItem("visit_count") || "0") + 1;
+            localStorage.setItem("visit_count", visits.toString());
+            let firstVisit = localStorage.getItem("first_visit_date");
+            if (!firstVisit) {
+                firstVisit = new Date().toISOString();
+                localStorage.setItem("first_visit_date", firstVisit);
+            }
+
+            setBehaviorData({
+                visit_count: visits,
+                device_id: deviceId, 
+                first_visit_date: firstVisit
+            });
+
+            // GTM Event
+            gtmEvent("view_item", {
+                visitorIP: ip,
+                browserName: ua,
+                ecommerce: {
+                  currency: CURRENCY,
+                  value: PRODUCT_PRICE,
+                  items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
+                },
+            });
+
+        } catch (error) {
+            console.error("Initialization Error", error);
+        } finally {
+            setIsCheckingBan(false);
         }
-
-        setBehaviorData({
-            visit_count: visits,
-            device_id: deviceId, // This ID is what we use to block them
-            first_visit_date: firstVisit
-        });
     };
 
-    const initializeTracking = async () => {
-      const ip = await fetchIp();
-      setClientInfo({ ip, userAgent: ua });
-      captureAnalytics(); 
-      gtmEvent("view_item", {
-        visitorIP: ip,
-        browserName: ua,
-        ecommerce: {
-          currency: CURRENCY,
-          value: PRODUCT_PRICE,
-          items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
-        },
-      });
-    };
-
-    initializeTracking();
+    performChecks();
   }, []);
 
-  // --- NEW: PARTIAL FORM CAPTURE (ABANDONED CART LOGIC) ---
+  // --- ABANDONED CART LOGIC ---
   useEffect(() => {
-    // 1. Don't run if fields are empty or device ID isn't ready
-    if ((!formData.name && !formData.number && !formData.address) || !behaviorData.device_id) {
-        return;
-    }
+    if (isBanned) return; // Don't save partials for banned users
+    if ((!formData.name && !formData.number && !formData.address) || !behaviorData.device_id) return;
 
-    // 2. Set a timer to wait 1.5 seconds after typing stops (Debounce)
     const autoSaveTimer = setTimeout(async () => {
-        // Calculate missing shipping variables matching handleOrder logic
         const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-        const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
         const totalValue = PRODUCT_PRICE + shippingCost;
 
         const partialData = {
-            deviceId: behaviorData.device_id, // Unique ID to match returning user
+            deviceId: behaviorData.device_id,
             name: formData.name,
             number: formData.number,
             address: formData.address,
-            shipping: shippingMethod,
+            shipping: shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে",
             shippingCost: shippingCost,
             totalValue: totalValue,
             items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
@@ -179,19 +209,15 @@ const HeroSection = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(partialData)
             });
-        } catch (error) {
-            console.error("Auto-save failed (ignoring silently):", error);
-        }
-    }, 1500); // 1500ms delay
+        } catch (error) {}
+    }, 1500); 
 
-    // 3. Cleanup: If user types again within 1.5s, cancel previous timer
     return () => clearTimeout(autoSaveTimer);
-  }, [formData, shipping, behaviorData, clientInfo, marketingData]);
+  }, [formData, shipping, behaviorData, clientInfo, marketingData, isBanned]);
 
-  // --- ADD_TO_CART Tracking ---
+  // --- ADD TO CART TRACKING ---
   useEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
+    if (isBanned || !sectionRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -213,12 +239,12 @@ const HeroSection = () => {
       { threshold: 0.5 }
     );
 
-    observer.observe(section);
+    observer.observe(sectionRef.current);
     return () => observer.disconnect();
-  }, [clientInfo]);
+  }, [clientInfo, isBanned]);
 
   const handleBeginCheckout = () => {
-    if (!checkoutStarted) {
+    if (!checkoutStarted && !isBanned) {
       gtmEvent("begin_checkout", {
         visitorIP: clientInfo.ip,
         browserName: clientInfo.userAgent,
@@ -232,56 +258,43 @@ const HeroSection = () => {
     }
   };
 
-  // --- NEW: HANDLE INPUT CHANGES ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    // Map input names to state keys
     if (name === "name") setFormData(prev => ({ ...prev, name: value }));
     if (name === "billing_phone") setFormData(prev => ({ ...prev, number: value }));
     if (name === "billing_address_1") setFormData(prev => ({ ...prev, address: value }));
   };
 
-  // --- MODIFIED ORDER HANDLER (INCLUDES BLOCK CHECK) ---
   const handleOrder = async (event) => {
     event.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmitting || isBanned) return;
     setIsSubmitting(true);
 
     try {
       const name = formData.name;
-      const number = formData.number;
+      const number = formData.number.trim();
       const address = formData.address;
       const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
-      const shippingMethod = shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে";
       const totalValue = PRODUCT_PRICE + shippingCost;
+      const currentDeviceId = behaviorData.device_id || localStorage.getItem("device_id") || "unknown";
 
       const orderData = {
-        name,
-        number,
-        address,
-        shipping: shippingMethod,
-        shippingCost,
-        totalValue,
-        status: "Processing",
-        phoneCallStatus: "Pending",
+        name, number, address,
+        shipping: shipping === "outside-dhaka" ? "ঢাকার বাহিরে" : "ঢাকার ভিতরে",
+        shippingCost, totalValue,
+        status: "Processing", phoneCallStatus: "Pending",
         items: [{ item_id: PRODUCT_ID, item_name: PRODUCT_NAME, price: PRODUCT_PRICE, item_category: PRODUCT_CATEGORY, quantity: 1 }],
-        currency: CURRENCY,
-        postId: POST_ID.toString(),
-        postType: POST_TYPE,
-        
-        // This 'clientInfo' is what the Backend checks to block the user
+        currency: CURRENCY, postId: POST_ID.toString(), postType: POST_TYPE,
         clientInfo: { 
             ip: clientInfo.ip, 
             userAgent: clientInfo.userAgent,
-            deviceId: behaviorData.device_id, // CRITICAL: This sends the ID to block
+            deviceId: currentDeviceId,
             visitCount: behaviorData.visit_count,
             firstVisit: behaviorData.first_visit_date 
         },
         marketing: marketingData,
       };
 
-      // POST to Server
       const response = await fetch(`${API_URL}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -290,28 +303,19 @@ const HeroSection = () => {
 
       const result = await response.json();
 
-      // ==========================================
-      // 1. CHECK IF USER IS BLOCKED (403 STATUS)
-      // ==========================================
       if (response.status === 403) {
-        alert("Security Alert: Unable to process order. Please contact support.");
-        setIsSubmitting(false);
-        return; // STOP HERE
+        setIsBanned(true); // If backend blocks during order, ban them immediately on UI
+        return; 
       }
 
-      // 2. CHECK FOR DUPLICATE ORDER FLAG
       if (response.status === 409 || result.reason === "active_order_exists") {
-        console.warn("Duplicate order detected");
         setShowDuplicateModal(true);
         setIsSubmitting(false);
         return;
       }
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to submit order.");
-      }
+      if (!response.ok || !result.success) throw new Error(result.message);
 
-      // Success - Redirect
       const params = new URLSearchParams({
         orderId: result.orderId.toString(),
         total: totalValue.toString(),
@@ -334,10 +338,23 @@ const HeroSection = () => {
   
   const calculatedTotal = PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
+  // --- RENDER LOGIC: THE TRAP ---
+  if (isCheckingBan) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center bg-white">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-red-600"></div>
+        </div>
+      );
+  }
+
+  if (isBanned) {
+      return <Fake404 />; // SHOW 404 IF BANNED
+  }
+
+  // --- NORMAL WEBSITE RENDER ---
   return (
     <section id="order" name="order" ref={sectionRef} className="bg-gray-100 px-2 shadow-2xl border relative">
       
-      {/* DUPLICATE ORDER MODAL */}
       {showDuplicateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center relative animate-in fade-in zoom-in duration-300">
@@ -368,7 +385,6 @@ const HeroSection = () => {
                 <MessageCircle size={20} />
                 WhatsApp এ মেসেজ দিন
               </a>
-              
               <a 
                 href="https://www.facebook.com/fb.uddokta" 
                 target="_blank" 
@@ -395,19 +411,17 @@ const HeroSection = () => {
         </h1>
         <form onSubmit={handleOrder} className="grid gap-4 max-w-2xl mx-auto">
           <div className="flex flex-col sm:flex-row gap-4">
-            {/* NAME INPUT */}
             <Input
               className="py-6"
               placeholder="Name (আপনার নাম)"
               name="name"
               required
               type="text"
-              value={formData.name}  // Controlled Value
-              onChange={handleInputChange} // Handle Change
+              value={formData.name}  
+              onChange={handleInputChange} 
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
             />
-            {/* PHONE INPUT */}
             <Input
               placeholder="Number (মোবাইল নম্বর)"
               name="billing_phone"
@@ -416,22 +430,21 @@ const HeroSection = () => {
               minLength={11}
               maxLength={16}
               className="py-6"
-              value={formData.number} // Controlled Value
-              onChange={handleInputChange} // Handle Change
+              value={formData.number} 
+              onChange={handleInputChange} 
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
               autoComplete="tel"
             />
           </div>
-          {/* ADDRESS INPUT */}
           <Input
             className="py-6"
             placeholder="Address (সম্পূর্ণ ঠিকানা)"
             name="billing_address_1"
             required
             type="text"
-            value={formData.address} // Controlled Value
-            onChange={handleInputChange} // Handle Change
+            value={formData.address} 
+            onChange={handleInputChange} 
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
             autoComplete="billing_address_1"

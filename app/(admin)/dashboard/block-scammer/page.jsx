@@ -11,7 +11,6 @@ export default function BlockScammerPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // 1. Fetch Blocked Users on Page Load
   useEffect(() => {
     fetchBlockedUsers();
   }, []);
@@ -20,20 +19,27 @@ export default function BlockScammerPage() {
     try {
       const res = await fetch(`${API_URL}/admin/blocked-users`);
       const data = await res.json();
-      setBlockedUsers(data);
+      if (Array.isArray(data)) {
+        setBlockedUsers(data);
+      } else {
+        setBlockedUsers([]); 
+        console.error("API returned non-array data:", data);
+      }
     } catch (error) {
       console.error("Failed to fetch blocked users", error);
     }
   };
 
-  // 2. Handle Blocking a New User
   const handleBlockUser = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
 
-    if (!identifier) {
-      setMessage({ type: "error", text: "Please enter a Device ID or Phone Number" });
+    // FIX: Trim whitespace from identifier
+    const cleanIdentifier = identifier.trim();
+
+    if (!cleanIdentifier) {
+      setMessage({ type: "error", text: "Please enter a Device ID, Phone Number, or IP" });
       setLoading(false);
       return;
     }
@@ -42,16 +48,16 @@ export default function BlockScammerPage() {
       const res = await fetch(`${API_URL}/admin/block-user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, note }),
+        body: JSON.stringify({ identifier: cleanIdentifier, note }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         setMessage({ type: "success", text: "User blocked successfully!" });
-        setIdentifier(""); // Clear input
-        setNote(""); // Clear note
-        fetchBlockedUsers(); // Refresh list
+        setIdentifier(""); 
+        setNote(""); 
+        fetchBlockedUsers(); 
       } else {
         setMessage({ type: "error", text: data.message || "Failed to block user" });
       }
@@ -62,17 +68,16 @@ export default function BlockScammerPage() {
     }
   };
 
-  // 3. Handle Unblocking (Deleting from Blacklist)
   const handleUnblock = async (targetIdentifier) => {
     if(!confirm("Are you sure you want to unblock this user?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/admin/blocked-users/${targetIdentifier}`, {
+      const res = await fetch(`${API_URL}/admin/blocked-users/${encodeURIComponent(targetIdentifier)}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
-        fetchBlockedUsers(); // Refresh list
+        fetchBlockedUsers(); 
       } else {
         alert("Failed to unblock");
       }
@@ -93,17 +98,17 @@ export default function BlockScammerPage() {
           <form onSubmit={handleBlockUser} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Device ID or Phone Number
+                Identifier (Device ID / Phone / IP)
               </label>
               <input
                 type="text"
-                placeholder="e.g. dev_gig6ornl5mihp8sui"
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 outline-none"
+                placeholder="e.g. 01712345678 or 103.102.x.x"
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 outline-none font-mono"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Paste the <code>deviceId</code> or <code>number</code> from the fake order here.
+                Paste the <code>deviceId</code>, <code>number</code>, or <code>IP</code> here. Spaces will be removed automatically.
               </p>
             </div>
 
@@ -113,7 +118,7 @@ export default function BlockScammerPage() {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Fake order scammer using Android 12"
+                placeholder="e.g. Fake order scammer"
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 outline-none"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -162,7 +167,7 @@ export default function BlockScammerPage() {
                       <td className="p-3 font-mono text-sm text-gray-800">{user.identifier}</td>
                       <td className="p-3 text-sm text-gray-600">{user.note}</td>
                       <td className="p-3 text-sm text-gray-500">
-                        {new Date(user.blockedAt).toLocaleDateString()}
+                        {user.blockedAt ? new Date(user.blockedAt).toLocaleDateString() : "N/A"}
                       </td>
                       <td className="p-3 text-right">
                         <button
