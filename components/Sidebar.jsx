@@ -10,7 +10,8 @@ import {
   Menu, 
   Package, 
   X,
-  ShoppingCart // 1. Imported new icon
+  ShoppingCart,
+  HatGlasses
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -72,6 +73,11 @@ export default function Sidebar() {
       label: 'Abandoned Orders', 
       path: '/dashboard/abandoned-orders', 
       icon: ShoppingCart 
+    },
+    { 
+      label: 'Block User', 
+      path: '/dashboard/block-scammer', 
+      icon: HatGlasses 
     }
   ];
 

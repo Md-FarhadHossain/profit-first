@@ -36,7 +36,7 @@ import {
   ArrowLeftCircle,
   StickyNote,
   Save,
-  Edit, // <--- Imported Edit icon
+  Edit,
 } from "lucide-react";
 import { UAParser } from "ua-parser-js";
 
@@ -397,7 +397,7 @@ const OrderModal = ({
   onStatusChange,
   onCallStatusChange,
   onShippingMethodChange,
-  onPriceChange, // <--- New prop for price update
+  onPriceChange,
 }) => {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [tempPrice, setTempPrice] = useState(order?.totalValue || 0);
@@ -650,6 +650,21 @@ const OrderModal = ({
                     </p>
                   </div>
                 </div>
+                {/* IP ADDRESS SECTION */}
+                <div className="p-5 flex gap-4 relative z-10">
+                  <div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 shrink-0 shadow-inner">
+                    <Globe size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+                      Network
+                    </h4>
+                    <p className="text-lg font-bold text-white tracking-tight font-mono">
+                      {order.ip}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">IP Address</p>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="p-6 bg-gray-800 rounded-xl border border-gray-700 text-center text-gray-500">
@@ -777,9 +792,7 @@ export default function App() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch(
-          "https://profit-first-server.vercel.app/orders"
-        );
+        const res = await fetch("https://profit-first-server.vercel.app/orders");
         const data = await res.json();
         const transformedData = data.map((order, index) => ({
           id: order._id || index,
@@ -792,6 +805,7 @@ export default function App() {
           callStatus: order.phoneCallStatus || "Pending",
           orderId: order.orderId,
           clientInfo: order.clientInfo || {},
+          ip: order.ip || order.clientInfo?.ip || "N/A", // Added IP mapping
           userAgent: order.clientInfo?.userAgent || order.userAgent || "",
           date: order.createdAt || new Date().toISOString(),
           note: order.note || "",
@@ -1396,7 +1410,9 @@ export default function App() {
                           {order.customer?.name}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">
-                          <span className="hidden lg:block md:block">{order.customer?.phone}</span>
+                          <span className="hidden lg:block md:block">
+                            {order.customer?.phone}
+                          </span>
                           <a
                             href={`tel:${order.customer?.phone}`}
                             className="text-xs text-gray-400 mt-0.5 hover:text-blue-500 hover:underline cursor-pointer block lg:hidden md:hidden"
