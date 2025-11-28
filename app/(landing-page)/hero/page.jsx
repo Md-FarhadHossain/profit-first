@@ -82,7 +82,6 @@ const HeroSection = () => {
   // --- STATE FOR BANNING ---
   const [isBanned, setIsBanned] = useState(false);
   const [isCheckingBan, setIsCheckingBan] = useState(true);
-
   const [shipping, setShipping] = useState("outside-dhaka");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
@@ -144,6 +143,7 @@ const HeroSection = () => {
 
             let visits = parseInt(localStorage.getItem("visit_count") || "0") + 1;
             localStorage.setItem("visit_count", visits.toString());
+
             let firstVisit = localStorage.getItem("first_visit_date");
             if (!firstVisit) {
                 firstVisit = new Date().toISOString();
@@ -185,7 +185,7 @@ const HeroSection = () => {
     const autoSaveTimer = setTimeout(async () => {
         const shippingCost = shipping === "outside-dhaka" ? 99.0 : 60.0;
         const totalValue = PRODUCT_PRICE + shippingCost;
-
+        
         const partialData = {
             deviceId: behaviorData.device_id,
             name: formData.name,
@@ -218,7 +218,6 @@ const HeroSection = () => {
   // --- ADD TO CART TRACKING ---
   useEffect(() => {
     if (isBanned || !sectionRef.current) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -238,7 +237,6 @@ const HeroSection = () => {
       },
       { threshold: 0.5 }
     );
-
     observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, [clientInfo, isBanned]);
@@ -327,6 +325,7 @@ const HeroSection = () => {
         price: PRODUCT_PRICE.toString(),
         quantity: "1",
       });
+
       window.location.href = `/thank-you?${params.toString()}`;
     } catch (error) {
       console.error("❌ Error placing order:", error);
@@ -421,6 +420,8 @@ const HeroSection = () => {
               onChange={handleInputChange} 
               onFocus={handleBeginCheckout}
               disabled={isSubmitting}
+              // Added autoComplete="name" so browser knows this is a name field
+              autoComplete="name"
             />
             <Input
               placeholder="Number (মোবাইল নম্বর)"
@@ -447,10 +448,10 @@ const HeroSection = () => {
             onChange={handleInputChange} 
             onFocus={handleBeginCheckout}
             disabled={isSubmitting}
-            autoComplete="billing_address_1"
+            // CHANGED: "billing_address_1" -> "street-address" for proper autofill
+            autoComplete="street-address"
             id="billing_address_1"
           />
-
           <div className="w-full">
             <h2 className="text-2xl font-semibold mb-4">Shipping (শিপিং চার্জ)</h2>
             <RadioGroup
@@ -485,7 +486,6 @@ const HeroSection = () => {
               </Label>
             </RadioGroup>
           </div>
-
           <div className="bg-gray-50 p-4 rounded-lg border">
              <div className="flex justify-between items-center mb-2">
               <span className="text-lg">বই মূল্য:</span>
@@ -506,7 +506,6 @@ const HeroSection = () => {
               </div>
             </div>
           </div>
-
           <Button
             className="w-full py-6 text-2xl font-bold"
             type="submit"
@@ -515,7 +514,6 @@ const HeroSection = () => {
             {isSubmitting ? "অর্ডার প্রসেসিং..." : `অর্ডার করুন ${calculatedTotal}৳`}
           </Button>
         </form>
-
         <div className="text-center mt-6 text-gray-600">
           <p>✅ ক্যাশ অন ডেলিভারি সুবিধা</p>
           <p>✅ সারাদেশে হোম ডেলিভারি</p>
@@ -524,5 +522,4 @@ const HeroSection = () => {
     </section>
   );
 };
-
 export default HeroSection;
