@@ -21,7 +21,7 @@ import {
   Calendar,
   DollarSign,
   PhoneCall,
-  PhoneOff,
+  PhoneOff, // Used for the new tab icon
   Check,
   Monitor,
   Smartphone,
@@ -37,9 +37,9 @@ import {
   StickyNote,
   Save,
   Edit,
+  Ghost,
 } from "lucide-react";
 import { UAParser } from "ua-parser-js";
-
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
   { label: "Processing", value: "Processing" },
@@ -47,20 +47,18 @@ const ACTION_OPTIONS = [
   { label: "Delivered", value: "Delivered" },
   { label: "Cancel", value: "Cancelled" },
   { label: "Return", value: "Returned" },
+  { label: "👻 Fake Customer", value: "Fake" },
   { label: "⚠️ Send to Abandoned", value: "Abandoned" },
 ];
-
 const CALL_OPTIONS = [
   { label: "Pending", value: "Pending" },
   { label: "Confirmed", value: "Confirmed" },
   { label: "No Answer", value: "No Answer" },
 ];
-
 const SHIPPING_METHOD_OPTIONS = [
   { label: "Inside Dhaka", value: "Inside Dhaka", cost: 60 },
   { label: "Outside Dhaka", value: "Outside Dhaka", cost: 99 },
 ];
-
 // --- HELPER: MODEL MAPPING ---
 const DEVICE_CODEX = {
   "23129RAA4G": "Redmi Note 13 5G",
@@ -70,7 +68,6 @@ const DEVICE_CODEX = {
   "iPhone16,1": "iPhone 15 Pro",
   "iPhone16,2": "iPhone 15 Pro Max",
 };
-
 // --- ADVANCED USER AGENT PARSER ---
 const getDeepUserAgentInfo = (uaString) => {
   if (!uaString) return null;
@@ -79,14 +76,12 @@ const getDeepUserAgentInfo = (uaString) => {
   const rawModel = result.device.model || "";
   const marketingName = DEVICE_CODEX[rawModel] || rawModel || "Unknown Device";
   const vendor = result.device.vendor || "Generic";
-
   let appSource = {
     name: "External Browser",
     code: "Browser",
     version: result.browser.version,
     insight: "User is browsing via a standard web browser.",
   };
-
   if (uaString.includes("FB_IAB") || uaString.includes("FB4A")) {
     const fbavMatch = uaString.match(/FBAV\/([\d.]+)/);
     appSource = {
@@ -103,11 +98,9 @@ const getDeepUserAgentInfo = (uaString) => {
       insight: "User came from Instagram.",
     };
   }
-
   const isWebView =
     uaString.includes("wv") ||
     (result.os.name === "Android" && uaString.includes("Version/"));
-
   const environment = {
     type: isWebView ? "WebView (In-App)" : "Standalone Browser",
     code: isWebView ? "wv" : "Standard",
@@ -115,9 +108,7 @@ const getDeepUserAgentInfo = (uaString) => {
       ? "Viewing inside another app."
       : "Using a dedicated browser.",
   };
-
   const summary = `${vendor} ${marketingName}, ${result.os.name}. Source: ${appSource.name}.`;
-
   return {
     raw: result,
     device: {
@@ -136,7 +127,6 @@ const getDeepUserAgentInfo = (uaString) => {
     summary,
   };
 };
-
 // --- HELPER COMPONENTS ---
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -145,10 +135,10 @@ const StatusBadge = ({ status }) => {
     Delivered: { icon: <CheckCircle size={14} />, color: "bg-green-600" },
     Cancelled: { icon: <XCircle size={14} />, color: "bg-red-600" },
     Returned: { icon: <RotateCcw size={14} />, color: "bg-orange-600" },
+    Fake: { icon: <Ghost size={14} />, color: "bg-slate-600" },
     Abandoned: { icon: <AlertTriangle size={14} />, color: "bg-yellow-600" },
   };
   const config = statusConfig[status] || statusConfig.Processing;
-
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white ${config.color} shadow-sm`}
@@ -158,24 +148,21 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
 const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
   const statusStyles = {
     Confirmed:
       "border-green-500/50 bg-green-500/20 text-green-200 focus:border-green-500",
     "No Answer":
-      "border-red-500/50 bg-red-500/20 text-red-200 focus:border-red-500",
+      "border-rose-500/50 bg-rose-500/20 text-rose-200 focus:border-rose-500",
     Pending:
       "border-yellow-500/50 bg-yellow-500/20 text-yellow-200 focus:border-yellow-500",
   };
   const currentStyle = statusStyles[currentStatus] || statusStyles["Pending"];
-
   const getIcon = () => {
     if (currentStatus === "Confirmed") return <Check size={12} />;
     if (currentStatus === "No Answer") return <PhoneOff size={12} />;
     return <PhoneCall size={12} />;
   };
-
   return (
     <div className="relative w-36">
       <select
@@ -201,7 +188,6 @@ const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
-
 const ActionDropdown = ({ currentStatus, onStatusChange }) => {
   const statusStyles = {
     Shipped:
@@ -212,13 +198,13 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
       "border-red-500/50 bg-red-900/20 text-red-200 focus:border-red-500 focus:ring-red-500",
     Returned:
       "border-orange-500/50 bg-orange-900/20 text-orange-200 focus:border-orange-500 focus:ring-orange-500",
+    Fake: "border-slate-500/50 bg-slate-900/20 text-slate-200 focus:border-slate-500 focus:ring-slate-500",
     Abandoned:
       "border-yellow-500/50 bg-yellow-900/20 text-yellow-200 focus:border-yellow-500 focus:ring-yellow-500",
     Default:
       "border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500",
   };
   const currentStyle = statusStyles[currentStatus] || statusStyles.Default;
-
   return (
     <div className="relative w-40">
       <select
@@ -243,7 +229,6 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
-
 const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
   const methodStyles = {
     "Inside Dhaka":
@@ -254,7 +239,6 @@ const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
       "border-gray-600 bg-gray-700 text-white focus:border-blue-500 focus:ring-blue-500",
   };
   const currentStyle = methodStyles[currentMethod] || methodStyles.Default;
-
   return (
     <div className="relative w-40">
       <select
@@ -279,7 +263,6 @@ const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
     </div>
   );
 };
-
 // --- ABANDON CONFIRMATION MODAL ---
 const AbandonConfirmationModal = ({
   isOpen,
@@ -288,7 +271,6 @@ const AbandonConfirmationModal = ({
   customerName,
 }) => {
   if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full shadow-2xl transform scale-100">
@@ -327,20 +309,16 @@ const AbandonConfirmationModal = ({
     </div>
   );
 };
-
 // --- NOTE MODAL COMPONENT ---
 const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
   const [noteText, setNoteText] = useState("");
-
   // Reset text when modal opens
   useEffect(() => {
     if (isOpen) {
       setNoteText(initialNote || "");
     }
   }, [isOpen, initialNote]);
-
   if (!isOpen || !order) return null;
-
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -389,7 +367,6 @@ const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
     </div>
   );
 };
-
 // --- UPDATED ORDER MODAL ---
 const OrderModal = ({
   order,
@@ -401,22 +378,18 @@ const OrderModal = ({
 }) => {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [tempPrice, setTempPrice] = useState(order?.totalValue || 0);
-
   useEffect(() => {
     setTempPrice(order?.totalValue || 0);
   }, [order]);
-
   const handleSavePrice = () => {
     if (tempPrice < 0) return;
     onPriceChange(tempPrice);
     setIsEditingPrice(false);
   };
-
   if (!order) return null;
   const uaData = getDeepUserAgentInfo(
     order.clientInfo?.userAgent || order.userAgent || ""
   );
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all">
       <div className="absolute inset-0" onClick={onClose}></div>
@@ -444,7 +417,6 @@ const OrderModal = ({
             <X size={20} />
           </button>
         </div>
-
         {/* Body */}
         <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto custom-scrollbar">
           {/* LEFT COLUMN: Basic Order Info */}
@@ -461,7 +433,6 @@ const OrderModal = ({
                 </div>
               </div>
             )}
-
             {/* Customer */}
             <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 overflow-hidden">
               <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
@@ -508,7 +479,6 @@ const OrderModal = ({
                 </div>
               </div>
             </div>
-
             {/* Delivery & Finance */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 flex flex-col">
@@ -538,7 +508,6 @@ const OrderModal = ({
                   </div>
                 </div>
               </div>
-
               {/* PAYMENT CARD WITH EDIT FUNCTIONALITY */}
               <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 flex flex-col">
                 <div className="bg-gray-900/50 px-4 py-2 border-b border-gray-700/50 flex items-center gap-2">
@@ -550,7 +519,6 @@ const OrderModal = ({
                 <div className="p-4 flex-1 space-y-2">
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Subtotal</span>
-                    {/* Dynamically calculate subtotal even during edit if needed, or just keep as static derived */}
                     <span>{order.totalValue - order.shippingCost}</span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-400">
@@ -603,7 +571,6 @@ const OrderModal = ({
               </div>
             </div>
           </div>
-
           {/* RIGHT COLUMN: The Digital ID Card */}
           <div className="space-y-3">
             {uaData ? (
@@ -673,7 +640,6 @@ const OrderModal = ({
             )}
           </div>
         </div>
-
         {/* Footer: Action Buttons */}
         <div className="px-6 py-4 bg-gray-900 border-t border-gray-700 shrink-0">
           <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-4">
@@ -718,7 +684,6 @@ const OrderModal = ({
     </div>
   );
 };
-
 // --- LOGIC HELPERS ---
 const getShippingLocation = (shippingCost) => {
   if (shippingCost === 60)
@@ -727,7 +692,6 @@ const getShippingLocation = (shippingCost) => {
     return { location: "Outside Dhaka", color: "text-orange-400" };
   return { location: "N/A", color: "text-gray-400" };
 };
-
 const formatTimeAgo = (dateString) => {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
@@ -737,13 +701,11 @@ const formatTimeAgo = (dateString) => {
   const minutes = Math.round(seconds / 60);
   const hours = Math.round(minutes / 60);
   const days = Math.round(hours / 24);
-
   if (seconds < 60) return `${seconds} sec ago`;
   if (minutes < 60) return `${minutes} min ago`;
   if (hours < 24) return `${hours} hr ago`;
   return `${days} days ago`;
 };
-
 // --- MAIN COMPONENT ---
 export default function App() {
   const [orders, setOrders] = useState([]);
@@ -753,21 +715,16 @@ export default function App() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
-
   // Abandon State
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [orderToAbandon, setOrderToAbandon] = useState(null);
-
   // Note Modal State
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [noteOrder, setNoteOrder] = useState(null);
-
   // Status filter state
   const [statusFilter, setStatusFilter] = useState(null);
-
   // COLLAPSIBLE STATE (Only for the Status Widgets now)
   const [isStatusWidgetOpen, setIsStatusWidgetOpen] = useState(false);
-
   // Calculate Status Counts
   const statusCounts = useMemo(() => {
     const counts = {
@@ -776,19 +733,29 @@ export default function App() {
       Delivered: 0,
       Cancelled: 0,
       Returned: 0,
+      Fake: 0,
+      "No Answer": 0, // NEW: Init No Answer count
     };
     orders.forEach((order) => {
-      if (counts[order.status] !== undefined) counts[order.status]++;
-      else counts.Processing++;
+      // Standard Status Count
+      if (counts[order.status] !== undefined) {
+        counts[order.status]++;
+      } else if (order.status === "Fake") {
+        counts.Fake++;
+      } else {
+        counts.Processing++;
+      }
+      // NEW: Specific Call Status Count
+      if (order.callStatus === "No Answer") {
+        counts["No Answer"]++;
+      }
     });
     return counts;
   }, [orders]);
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -810,9 +777,7 @@ export default function App() {
           date: order.createdAt || new Date().toISOString(),
           note: order.note || "",
         }));
-
         setOrders(transformedData);
-
         const now = new Date();
         const today = new Date(
           now.getFullYear(),
@@ -822,7 +787,6 @@ export default function App() {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
         setStats({
           today: transformedData.filter((o) => new Date(o.date) >= today)
             .length,
@@ -840,7 +804,6 @@ export default function App() {
     };
     fetchOrders();
   }, []);
-
   // --- HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
     if (newStatus === "Abandoned") {
@@ -851,13 +814,11 @@ export default function App() {
       }
       return;
     }
-
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, status: newStatus } : o))
     );
     if (selectedOrder?.id === id)
       setSelectedOrder((prev) => ({ ...prev, status: newStatus }));
-
     try {
       await fetch(`https://profit-first-server.vercel.app/orders/${id}`, {
         method: "PATCH",
@@ -868,10 +829,8 @@ export default function App() {
       console.error(e);
     }
   };
-
   const proceedWithAbandon = async () => {
     if (!orderToAbandon) return;
-
     if (
       typeof orderToAbandon.id === "number" ||
       orderToAbandon.id.length < 10
@@ -879,7 +838,6 @@ export default function App() {
       alert("Error: Invalid Order ID. Cannot migrate.");
       return;
     }
-
     try {
       const res = await fetch(
         `https://profit-first-server.vercel.app/orders/${orderToAbandon.id}/move-to-abandoned`,
@@ -887,7 +845,6 @@ export default function App() {
           method: "POST",
         }
       );
-
       const contentType = res.headers.get("content-type");
       if (
         !res.ok ||
@@ -901,7 +858,6 @@ export default function App() {
         );
         return;
       }
-
       const data = await res.json();
       if (data.success) {
         setOrders((prev) => prev.filter((o) => o.id !== orderToAbandon.id));
@@ -917,14 +873,12 @@ export default function App() {
       alert("A network or server error occurred. Check console.");
     }
   };
-
   const handleCallStatusChange = async (id, newCallStatus) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, callStatus: newCallStatus } : o))
     );
     if (selectedOrder?.id === id)
       setSelectedOrder((prev) => ({ ...prev, callStatus: newCallStatus }));
-
     try {
       await fetch(
         `https://profit-first-server.vercel.app/orders/${id}/call-status`,
@@ -938,14 +892,12 @@ export default function App() {
       console.error(e);
     }
   };
-
   const handleShippingMethodChange = async (id, newMethod) => {
     const selectedOption = SHIPPING_METHOD_OPTIONS.find(
       (option) => option.value === newMethod
     );
     if (!selectedOption) return;
     const newCost = selectedOption.cost;
-
     setOrders((prev) =>
       prev.map((o) =>
         o.id === id
@@ -965,7 +917,6 @@ export default function App() {
         shippingCost: newCost,
         totalValue: prev.totalValue - prev.shippingCost + newCost,
       }));
-
     try {
       await fetch(
         `https://profit-first-server.vercel.app/orders/${id}/shipping-method`,
@@ -982,40 +933,28 @@ export default function App() {
       console.error(e);
     }
   };
-
-  // --- NEW PRICE CHANGE HANDLER ---
   const handlePriceChange = async (id, newPrice) => {
     const price = Number(newPrice);
     if (isNaN(price)) return;
-
-    // Optimistically update
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, totalValue: price } : o))
     );
-
-    // Update selected order if open
     if (selectedOrder?.id === id) {
       setSelectedOrder((prev) => ({
         ...prev,
         totalValue: price,
       }));
     }
-
     try {
-      // Assuming a standard endpoint for price update exists or is handled here
-      await fetch(
-        `https://profit-first-server.vercel.app/orders/${id}/price`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ totalValue: price }),
-        }
-      );
+      await fetch(`https://profit-first-server.vercel.app/orders/${id}/price`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ totalValue: price }),
+      });
     } catch (e) {
       console.error("Failed to update price", e);
     }
   };
-
   const handleSaveNote = async (id, noteText) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, note: noteText } : o))
@@ -1025,7 +964,6 @@ export default function App() {
     }
     setIsNoteModalOpen(false);
     setNoteOrder(null);
-
     try {
       await fetch(`https://profit-first-server.vercel.app/orders/${id}/note`, {
         method: "PATCH",
@@ -1037,12 +975,10 @@ export default function App() {
       alert("Failed to save note to server");
     }
   };
-
   const openNoteModal = (order) => {
     setNoteOrder(order);
     setIsNoteModalOpen(true);
   };
-
   const handleStatusWidgetClick = (statusKey) => {
     if (statusFilter === statusKey) {
       setStatusFilter(null);
@@ -1051,7 +987,7 @@ export default function App() {
     }
     setCurrentPage(1);
   };
-
+  // --- UPDATED FILTER LOGIC FOR NO ANSWER ---
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter(
       (o) =>
@@ -1059,22 +995,23 @@ export default function App() {
         o.customer?.phone?.includes(searchTerm) ||
         o.id?.toString().includes(searchTerm)
     );
-
-    if (statusFilter) {
+    if (statusFilter === "No Answer") {
+      // Logic for the specific No Answer tab
+      filtered = filtered.filter((o) => o.callStatus === "No Answer");
+    } else if (statusFilter) {
+      // Logic for standard status tabs
       filtered = filtered.filter((o) => o.status === statusFilter);
     }
     return filtered;
   }, [orders, searchTerm, statusFilter]);
-
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredOrders.slice(start, start + itemsPerPage);
   }, [filteredOrders, currentPage, itemsPerPage]);
-
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
-
+  // --- UPDATED WIDGETS CONFIGURATION ---
   const statusWidgets = [
     {
       label: "Processing",
@@ -1116,19 +1053,33 @@ export default function App() {
       bg: "bg-orange-500/10",
       border: "border-orange-500/20",
     },
+    {
+      label: "Fake",
+      key: "Fake",
+      icon: Ghost,
+      color: "text-slate-400",
+      bg: "bg-slate-500/10",
+      border: "border-slate-500/20",
+    },
+    // NEW NO ANSWER WIDGET
+    {
+      label: "No Answer",
+      key: "No Answer",
+      icon: PhoneOff,
+      color: "text-rose-400",
+      bg: "bg-rose-500/10",
+      border: "border-rose-500/20",
+    },
   ];
-
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }`}</style>
-
       <AbandonConfirmationModal
         isOpen={showAbandonConfirm}
         onClose={() => setShowAbandonConfirm(false)}
         onConfirm={proceedWithAbandon}
         customerName={orderToAbandon?.customer?.name || "Customer"}
       />
-
       <NoteModal
         isOpen={isNoteModalOpen}
         onClose={() => setIsNoteModalOpen(false)}
@@ -1136,7 +1087,6 @@ export default function App() {
         order={noteOrder}
         initialNote={noteOrder?.note}
       />
-
       {selectedOrder && (
         <OrderModal
           order={selectedOrder}
@@ -1151,7 +1101,6 @@ export default function App() {
           onPriceChange={(val) => handlePriceChange(selectedOrder.id, val)}
         />
       )}
-
       <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">
@@ -1166,7 +1115,6 @@ export default function App() {
           {currentTime.toLocaleString()}
         </div>
       </header>
-
       {/* STATISTICS SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
@@ -1185,7 +1133,6 @@ export default function App() {
           </div>
         ))}
       </div>
-
       {/* Mobile Collapsible View for Status Widgets */}
       <div className="md:hidden bg-gray-800 rounded-xl border border-gray-700 mb-6 overflow-hidden">
         <button
@@ -1241,9 +1188,8 @@ export default function App() {
           </div>
         )}
       </div>
-
       {/* Desktop Grid View for Status Widgets */}
-      <div className="hidden md:grid md:grid-cols-5 gap-3 mb-6">
+      <div className="hidden md:grid md:grid-cols-7 gap-3 mb-6">
         {statusWidgets.map((w) => {
           const Icon = w.icon;
           const isActive = statusFilter === w.key;
@@ -1277,12 +1223,18 @@ export default function App() {
           );
         })}
       </div>
-
       {/* Active Filter Indicator */}
       {statusFilter && (
         <div className="mb-4 flex items-center gap-2">
           <span className="text-sm text-gray-400">Active filter:</span>
-          <StatusBadge status={statusFilter} />
+          {statusFilter === "No Answer" ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-rose-600 shadow-sm">
+              <PhoneOff size={14} />
+              No Answer
+            </span>
+          ) : (
+            <StatusBadge status={statusFilter} />
+          )}
           <button
             onClick={() => setStatusFilter(null)}
             className="text-xs text-gray-400 hover:text-white underline"
@@ -1291,7 +1243,6 @@ export default function App() {
           </button>
         </div>
       )}
-
       {/* SEARCH SECTION */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
         <div className="relative w-full md:w-1/3">
@@ -1329,7 +1280,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
       {/* TABLE SECTION */}
       <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
@@ -1360,14 +1310,16 @@ export default function App() {
             </thead>
             <tbody className="divide-y divide-gray-700 bg-gray-800">
               {paginatedOrders.length > 0 ? (
-                paginatedOrders.map((order) => {
+                paginatedOrders.map((order, index) => {
                   const { location, color } = getShippingLocation(
                     order.shippingCost
                   );
                   return (
                     <tr
                       key={order.id}
-                      className="hover:bg-gray-700/40 transition-colors"
+                      className={`hover:bg-gray-700/40 transition-colors ${
+                        index % 2 === 0 ? "bg-gray-700/25" : ""
+                      }`}
                     >
                       <td className="whitespace-nowrap py-4 px-4 text-sm font-mono text-blue-400">
                         #{order.orderId}
@@ -1483,7 +1435,6 @@ export default function App() {
           </table>
         </div>
       </div>
-
       {totalPages > 1 && (
         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p className="text-gray-400">

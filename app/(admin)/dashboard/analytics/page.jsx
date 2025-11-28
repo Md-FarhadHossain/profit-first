@@ -174,6 +174,19 @@ export default function AnalyticsDashboard() {
   const analytics = useMemo(() => {
     if (!orders.length) return null;
 
+    // --- CRITICAL CHANGE: FILTER OUT FAKE ORDERS ---
+    // This ensures only real orders are used for ALL calculations below
+    const validOrders = orders.filter(order => order.status !== 'Fake');
+    
+    // If no valid orders exist after filtering, handle gracefully
+    if (validOrders.length === 0 && orders.length > 0) return {
+        totalOrders: 0, rangeOrdersCount: 0, rangeRevenue: 0, rangeShippedCount: 0, 
+        rangeDeliveredCount: 0, totalRevenue: 0, todayOrders: 0, growth: '0%', 
+        growthDirection: 'flat', chartData: [], statusData: [], locationData: [], 
+        marketingData: [], insidePct: 0, paidPct: 0, osData: [], modelData: [], 
+        androidVersions: [], appContextData: []
+    };
+
     const today = startOfDay(new Date());
     const cutoffDate = subDays(today, timeRange);
 
@@ -211,8 +224,8 @@ export default function AnalyticsDashboard() {
       };
     });
 
-    // --- MAIN LOOP ---
-    orders.forEach(order => {
+    // --- MAIN LOOP (Using validOrders) ---
+    validOrders.forEach(order => {
       // 1. Parsing Dates
       const createdDate = new Date(order.createdAt);
       const shippedDate = order.shippedAt ? new Date(order.shippedAt) : null;
@@ -249,7 +262,7 @@ export default function AnalyticsDashboard() {
          if (statusDist[status] !== undefined) statusDist[status]++;
          else statusDist['Processing']++;
 
-         // --- PAID VS ORGANIC LOGIC (UPDATED) ---
+         // --- PAID VS ORGANIC LOGIC ---
          const marketing = order.marketing;
          const isPaid = !marketing || marketing.utm_medium === 'paid';
 
@@ -325,7 +338,7 @@ export default function AnalyticsDashboard() {
     const paidPct = totalMarketing > 0 ? ((paidCount / totalMarketing) * 100).toFixed(0) : 0;
 
     return {
-      totalOrders: orders.length,
+      totalOrders: validOrders.length, // Uses only valid count
       rangeOrdersCount,
       rangeRevenue, 
       rangeShippedCount,
