@@ -16,6 +16,7 @@ import BookInside from "@/components/bookInside"
 
 import HeroSction from "../hero/page";
 import PageSwiper from "@/components/PageSwiper";
+import PrivateCommunity from "@/components/PrivateCommunity"
 
 import Navbar from "@/components/Navbar"
 
@@ -32,6 +33,7 @@ const HeaderSection = () => {
         {/* <AniOrderNowBtn />   */}
         <BookInfo />
         <AllReaders />
+        <PrivateCommunity />
         <BookInside />
         {/* <WhatsInside /> */}
 
