@@ -21,7 +21,7 @@ import {
   Calendar,
   DollarSign,
   PhoneCall,
-  PhoneOff, // Used for the new tab icon
+  PhoneOff,
   Check,
   Monitor,
   Smartphone,
@@ -38,8 +38,10 @@ import {
   Save,
   Edit,
   Ghost,
+  ClipboardCheck, // Imported for the new widget
 } from "lucide-react";
 import { UAParser } from "ua-parser-js";
+
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
   { label: "Processing", value: "Processing" },
@@ -734,7 +736,8 @@ export default function App() {
       Cancelled: 0,
       Returned: 0,
       Fake: 0,
-      "No Answer": 0, // NEW: Init No Answer count
+      "No Answer": 0,
+      "ConfirmedProcessing": 0, // NEW: Count for Ready to Ship
     };
     orders.forEach((order) => {
       // Standard Status Count
@@ -748,6 +751,11 @@ export default function App() {
       // NEW: Specific Call Status Count
       if (order.callStatus === "No Answer") {
         counts["No Answer"]++;
+      }
+      
+      // NEW: Ready to Ship Logic (Processing AND Confirmed)
+      if (order.status === "Processing" && order.callStatus === "Confirmed") {
+        counts["ConfirmedProcessing"]++;
       }
     });
     return counts;
@@ -987,7 +995,7 @@ export default function App() {
     }
     setCurrentPage(1);
   };
-  // --- UPDATED FILTER LOGIC FOR NO ANSWER ---
+  // --- UPDATED FILTER LOGIC FOR NO ANSWER AND READY TO SHIP ---
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter(
       (o) =>
@@ -998,6 +1006,9 @@ export default function App() {
     if (statusFilter === "No Answer") {
       // Logic for the specific No Answer tab
       filtered = filtered.filter((o) => o.callStatus === "No Answer");
+    } else if (statusFilter === "ConfirmedProcessing") {
+      // Logic for Ready to Ship (Processing + Confirmed)
+      filtered = filtered.filter((o) => o.status === "Processing" && o.callStatus === "Confirmed");
     } else if (statusFilter) {
       // Logic for standard status tabs
       filtered = filtered.filter((o) => o.status === statusFilter);
@@ -1020,6 +1031,15 @@ export default function App() {
       color: "text-blue-400",
       bg: "bg-blue-500/10",
       border: "border-blue-500/20",
+    },
+    // NEW READY TO SHIP WIDGET (Confirmed Processing)
+    {
+      label: "Ready to Ship",
+      key: "ConfirmedProcessing",
+      icon: ClipboardCheck,
+      color: "text-teal-400",
+      bg: "bg-teal-500/10",
+      border: "border-teal-500/20",
     },
     {
       label: "Shipped",
@@ -1061,7 +1081,7 @@ export default function App() {
       bg: "bg-slate-500/10",
       border: "border-slate-500/20",
     },
-    // NEW NO ANSWER WIDGET
+    // NO ANSWER WIDGET
     {
       label: "No Answer",
       key: "No Answer",
@@ -1189,7 +1209,7 @@ export default function App() {
         )}
       </div>
       {/* Desktop Grid View for Status Widgets */}
-      <div className="hidden md:grid md:grid-cols-7 gap-3 mb-6">
+      <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
         {statusWidgets.map((w) => {
           const Icon = w.icon;
           const isActive = statusFilter === w.key;
@@ -1232,6 +1252,11 @@ export default function App() {
               <PhoneOff size={14} />
               No Answer
             </span>
+          ) : statusFilter === "ConfirmedProcessing" ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-teal-600 shadow-sm">
+            <ClipboardCheck size={14} />
+            Ready to Ship
+          </span>
           ) : (
             <StatusBadge status={statusFilter} />
           )}
