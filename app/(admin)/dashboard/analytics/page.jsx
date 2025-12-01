@@ -9,11 +9,14 @@ import {
   ArrowUpRight, ArrowDownRight, Calendar, TrendingUp, 
   Package, DollarSign, Activity, MapPin, ChevronDown, 
   Smartphone, Cpu, Share2, Globe, ShieldCheck, CheckCircle, Send,
-  Megaphone, Wallet, ShoppingBag
+  Megaphone, Wallet, ShoppingBag, X
 } from 'lucide-react';
-import { format, subDays, isSameDay, startOfDay } from 'date-fns';
+import { format, subDays, isSameDay, startOfDay, isToday, isYesterday, isThisMonth, isThisYear, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { UAParser } from 'ua-parser-js'; 
 import getAllOrders from '@/lib/getAllorders';
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // --- CONFIGURATION: MODEL MAPPING ---
 const DEVICE_CODEX = {
@@ -27,6 +30,135 @@ const DEVICE_CODEX = {
   'iPhone15,2': 'iPhone 14 Pro',
   'CPH2529': 'Oppo A78',
   'V2250': 'Vivo V27',
+};
+
+// --- DATE PRESET OPTIONS ---
+const DATE_PRESETS = [
+  { label: "Today", value: "today", getDateRange: () => {
+    const today = new Date();
+    return { from: today, to: today };
+  }},
+  { label: "Yesterday", value: "yesterday", getDateRange: () => {
+    const yesterday = subDays(new Date(), 1);
+    return { from: yesterday, to: yesterday };
+  }},
+  { label: "Last 7 Days", value: "last7days", getDateRange: () => {
+    return { from: subDays(new Date(), 6), to: new Date() };
+  }},
+  { label: "Last 30 Days", value: "last30days", getDateRange: () => {
+    return { from: subDays(new Date(), 29), to: new Date() };
+  }},
+  { label: "This Month", value: "thismonth", getDateRange: () => {
+    return { from: startOfMonth(new Date()), to: endOfMonth(new Date()) };
+  }},
+  { label: "Last Month", value: "lastmonth", getDateRange: () => {
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return { from: lastMonth, to: endOfMonth(lastMonth) };
+  }},
+  { label: "This Year", value: "thisyear", getDateRange: () => {
+    return { from: startOfYear(new Date()), to: endOfYear(new Date()) };
+  }},
+  { label: "Custom Range", value: "custom", getDateRange: () => null },
+];
+
+// --- DATE RANGE PICKER COMPONENT ---
+const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPresetChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const handlePresetClick = (preset) => {
+    onPresetChange(preset.value);
+    if (preset.value !== "custom") {
+      const range = preset.getDateRange();
+      onDateRangeChange(range);
+      setIsOpen(false);
+    }
+  };
+
+  const formatDateDisplay = (range) => {
+    if (!range) return "Select dates";
+    if (range.from && range.to) {
+      if (range.from.getTime() === range.to.getTime()) {
+        return format(range.from, "MMM dd, yyyy");
+      }
+      return `${format(range.from, "MMM dd")} - ${format(range.to, "MMM dd, yyyy")}`;
+    }
+    if (range.from) {
+      return `${format(range.from, "MMM dd, yyyy")} - ...`;
+    }
+    return "Select dates";
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full md:w-auto justify-start text-left font-normal bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            {formatDateDisplay(dateRange)}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0 bg-gray-800 border-gray-700" align="start">
+          <div className="flex flex-col md:flex-row gap-4 p-4">
+            {/* Presets */}
+            <div className="flex flex-col gap-2 min-w-[150px]">
+              <h4 className="text-sm font-medium text-gray-400 mb-2">Quick Select</h4>
+              {DATE_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => handlePresetClick(preset)}
+                  className={`text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                    selectedPreset === preset.value
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            
+            {/* Calendar */}
+            <div>
+              <CalendarComponent
+                mode="range"
+                selected={dateRange}
+                onSelect={onDateRangeChange}
+                numberOfMonths={2}
+                className="bg-gray-800 text-white"
+                classNames={{
+                  day_selected: "bg-blue-600 text-white hover:bg-blue-700",
+                  day_today: "bg-gray-700 text-white",
+                  day_outside: "text-gray-500",
+                  day_disabled: "text-gray-600",
+                  day_range_middle: "bg-blue-900/50 text-white",
+                  day_range_start: "bg-blue-600 text-white rounded-l-md",
+                  day_range_end: "bg-blue-600 text-white rounded-r-md",
+                }}
+              />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      
+      {dateRange && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            onDateRangeChange(null);
+            onPresetChange(null);
+          }}
+          className="text-gray-400 hover:text-white"
+        >
+          <X size={16} />
+        </Button>
+      )}
+    </div>
+  );
 };
 
 // --- UI COMPONENTS ---
@@ -153,7 +285,10 @@ const aggregateCounts = (dataArray, keyFetcher, topLimit = 5) => {
 export default function AnalyticsDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState(30);
+  
+  // Date filtering state - replacing the simple timeRange with date range
+  const [dateRange, setDateRange] = useState(null);
+  const [selectedPreset, setSelectedPreset] = useState("last30days");
 
   // 1. Fetch Data
   useEffect(() => {
@@ -188,7 +323,32 @@ export default function AnalyticsDashboard() {
     };
 
     const today = startOfDay(new Date());
-    const cutoffDate = subDays(today, timeRange);
+    
+    // Calculate cutoff date based on selected date range or preset
+    let cutoffDate;
+    if (dateRange && dateRange.from) {
+      cutoffDate = startOfDay(dateRange.from);
+    } else if (selectedPreset) {
+      const preset = DATE_PRESETS.find(p => p.value === selectedPreset);
+      if (preset && preset.value !== "custom") {
+        const range = preset.getDateRange();
+        cutoffDate = startOfDay(range.from);
+      } else {
+        // Default to last 30 days if no valid preset
+        cutoffDate = subDays(today, 29);
+      }
+    } else {
+      // Default to last 30 days
+      cutoffDate = subDays(today, 29);
+    }
+
+    // Calculate the number of days for the chart
+    let timeRangeInDays;
+    if (dateRange && dateRange.from && dateRange.to) {
+      timeRangeInDays = Math.ceil((dateRange.to - dateRange.from) / (1000 * 60 * 60 * 24)) + 1;
+    } else {
+      timeRangeInDays = 30; // Default
+    }
 
     // --- VARIABLES ---
     let totalRevenue = 0; 
@@ -212,8 +372,8 @@ export default function AnalyticsDashboard() {
     const uaDataList = [];
 
     // --- CHART DATA SKELETON ---
-    const chartDataArr = Array.from({ length: timeRange }, (_, i) => {
-      const d = subDays(today, timeRange - 1 - i);
+    const chartDataArr = Array.from({ length: timeRangeInDays }, (_, i) => {
+      const d = subDays(today, timeRangeInDays - 1 - i);
       return { 
         date: format(d, 'MMM dd'), 
         fullDate: d, 
@@ -232,6 +392,14 @@ export default function AnalyticsDashboard() {
       const deliveredDate = order.deliveredAt ? new Date(order.deliveredAt) : null;
       
       const isCreatedInRange = createdDate >= cutoffDate;
+      
+      // If we have a date range end date, check if the order is within the range
+      let isInDateRange = true;
+      if (dateRange && dateRange.to) {
+        const endDate = new Date(dateRange.to);
+        endDate.setHours(23, 59, 59, 999);
+        isInDateRange = createdDate <= endDate;
+      }
 
       // 2. Revenue Calculation
       const orderValue = parseFloat(order.totalValue) || 0;
@@ -244,7 +412,7 @@ export default function AnalyticsDashboard() {
       // 4. CHART POPULATION & RANGE COUNTS
       
       // A. Order Creation Logic
-      if (isCreatedInRange) {
+      if (isCreatedInRange && isInDateRange) {
          rangeOrdersCount++;
          rangeRevenue += orderValue;
 
@@ -274,14 +442,14 @@ export default function AnalyticsDashboard() {
       }
 
       // B. Shipped Logic 
-      if (shippedDate && shippedDate >= cutoffDate) {
+      if (shippedDate && shippedDate >= cutoffDate && isInDateRange) {
         rangeShippedCount++;
         const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, shippedDate));
         if (dayStat) dayStat.shipped += 1;
       }
 
       // C. Delivered Logic 
-      if (deliveredDate && deliveredDate >= cutoffDate) {
+      if (deliveredDate && deliveredDate >= cutoffDate && isInDateRange) {
         rangeDeliveredCount++;
         const dayStat = chartDataArr.find(d => isSameDay(d.fullDate, deliveredDate));
         if (dayStat) dayStat.delivered += 1;
@@ -367,7 +535,7 @@ export default function AnalyticsDashboard() {
       androidVersions,
       appContextData
     };
-  }, [orders, timeRange]);
+  }, [orders, dateRange, selectedPreset]);
 
   if (loading) return <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-white"><Activity className="animate-pulse mr-2" /> Loading Analytics...</div>;
 
@@ -378,25 +546,41 @@ export default function AnalyticsDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">Analytics Dashboard</h1>
           <p className="text-gray-400 mt-2 text-sm">
-            Overview for the last <span className="text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded-md">{timeRange} days</span>.
+            {dateRange ? (
+              <>
+                Overview for <span className="text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded-md">
+                  {dateRange.from && dateRange.to ? (
+                    dateRange.from.getTime() === dateRange.to.getTime() ? (
+                      format(dateRange.from, "MMM dd, yyyy")
+                    ) : (
+                      `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                    )
+                  ) : "Custom range"
+                  }
+                </span>
+              </>
+            ) : selectedPreset ? (
+              <>
+                Overview for <span className="text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded-md">
+                  {DATE_PRESETS.find(p => p.value === selectedPreset)?.label || "Selected period"}
+                </span>
+              </>
+            ) : (
+              <>
+                Overview for the last <span className="text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded-md">30 days</span>
+              </>
+            )}
           </p>
         </div>
         
-        {/* Custom Date Picker UI */}
-        <div className="relative group min-w-[180px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                <Calendar size={16} className="text-blue-400" />
-            </div>
-            <select 
-                value={timeRange}
-                onChange={(e) => setTimeRange(Number(e.target.value))}
-                className="w-full appearance-none bg-gray-800/80 backdrop-blur border border-gray-700 hover:border-blue-500/50 rounded-xl py-3 pl-10 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all cursor-pointer shadow-lg"
-            >
-                <option value={7}>Last 7 Days</option>
-                <option value={15}>Last 15 Days</option>
-                <option value={30}>Last 30 Days</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        {/* Date Range Picker - replacing the simple dropdown */}
+        <div className="w-full md:w-auto">
+          <DateRangePicker
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            selectedPreset={selectedPreset}
+            onPresetChange={setSelectedPreset}
+          />
         </div>
       </header>
 
