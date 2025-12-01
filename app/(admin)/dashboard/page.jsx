@@ -38,9 +38,13 @@ import {
   Save,
   Edit,
   Ghost,
-  ClipboardCheck, // Imported for the new widget
+  ClipboardCheck,
 } from "lucide-react";
 import { UAParser } from "ua-parser-js";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isYesterday, isThisMonth, isThisYear } from "date-fns";
 
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
@@ -61,6 +65,37 @@ const SHIPPING_METHOD_OPTIONS = [
   { label: "Inside Dhaka", value: "Inside Dhaka", cost: 60 },
   { label: "Outside Dhaka", value: "Outside Dhaka", cost: 99 },
 ];
+
+// --- DATE PRESET OPTIONS ---
+const DATE_PRESETS = [
+  { label: "Today", value: "today", getDateRange: () => {
+    const today = new Date();
+    return { from: today, to: today };
+  }},
+  { label: "Yesterday", value: "yesterday", getDateRange: () => {
+    const yesterday = subDays(new Date(), 1);
+    return { from: yesterday, to: yesterday };
+  }},
+  { label: "Last 7 Days", value: "last7days", getDateRange: () => {
+    return { from: subDays(new Date(), 6), to: new Date() };
+  }},
+  { label: "Last 30 Days", value: "last30days", getDateRange: () => {
+    return { from: subDays(new Date(), 29), to: new Date() };
+  }},
+  { label: "This Month", value: "thismonth", getDateRange: () => {
+    return { from: startOfMonth(new Date()), to: endOfMonth(new Date()) };
+  }},
+  { label: "Last Month", value: "lastmonth", getDateRange: () => {
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return { from: lastMonth, to: endOfMonth(lastMonth) };
+  }},
+  { label: "This Year", value: "thisyear", getDateRange: () => {
+    return { from: startOfYear(new Date()), to: endOfYear(new Date()) };
+  }},
+  { label: "Custom Range", value: "custom", getDateRange: () => null },
+];
+
 // --- HELPER: MODEL MAPPING ---
 const DEVICE_CODEX = {
   "23129RAA4G": "Redmi Note 13 5G",
@@ -70,6 +105,7 @@ const DEVICE_CODEX = {
   "iPhone16,1": "iPhone 15 Pro",
   "iPhone16,2": "iPhone 15 Pro Max",
 };
+
 // --- ADVANCED USER AGENT PARSER ---
 const getDeepUserAgentInfo = (uaString) => {
   if (!uaString) return null;
@@ -129,6 +165,7 @@ const getDeepUserAgentInfo = (uaString) => {
     summary,
   };
 };
+
 // --- HELPER COMPONENTS ---
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -150,6 +187,7 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
+
 const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
   const statusStyles = {
     Confirmed:
@@ -190,6 +228,7 @@ const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
+
 const ActionDropdown = ({ currentStatus, onStatusChange }) => {
   const statusStyles = {
     Shipped:
@@ -231,6 +270,7 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
+
 const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
   const methodStyles = {
     "Inside Dhaka":
@@ -265,6 +305,106 @@ const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
     </div>
   );
 };
+
+// --- DATE RANGE PICKER COMPONENT ---
+const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPresetChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const handlePresetClick = (preset) => {
+    onPresetChange(preset.value);
+    if (preset.value !== "custom") {
+      const range = preset.getDateRange();
+      onDateRangeChange(range);
+      setIsOpen(false);
+    }
+  };
+
+  const formatDateDisplay = (range) => {
+    if (!range) return "Select dates";
+    if (range.from && range.to) {
+      if (range.from.getTime() === range.to.getTime()) {
+        return format(range.from, "MMM dd, yyyy");
+      }
+      return `${format(range.from, "MMM dd")} - ${format(range.to, "MMM dd, yyyy")}`;
+    }
+    if (range.from) {
+      return `${format(range.from, "MMM dd, yyyy")} - ...`;
+    }
+    return "Select dates";
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full md:w-auto justify-start text-left font-normal bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            {formatDateDisplay(dateRange)}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0 bg-gray-800 border-gray-700" align="start">
+          <div className="flex flex-col md:flex-row gap-4 p-4">
+            {/* Presets */}
+            <div className="flex flex-col gap-2 min-w-[150px]">
+              <h4 className="text-sm font-medium text-gray-400 mb-2">Quick Select</h4>
+              {DATE_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => handlePresetClick(preset)}
+                  className={`text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                    selectedPreset === preset.value
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-300 hover:bg-gray-700"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            
+            {/* Calendar */}
+            <div>
+              <CalendarComponent
+                mode="range"
+                selected={dateRange}
+                onSelect={onDateRangeChange}
+                numberOfMonths={2}
+                className="bg-gray-800 text-white"
+                classNames={{
+                  day_selected: "bg-blue-600 text-white hover:bg-blue-700",
+                  day_today: "bg-gray-700 text-white",
+                  day_outside: "text-gray-500",
+                  day_disabled: "text-gray-600",
+                  day_range_middle: "bg-blue-900/50 text-white",
+                  day_range_start: "bg-blue-600 text-white rounded-l-md",
+                  day_range_end: "bg-blue-600 text-white rounded-r-md",
+                }}
+              />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      
+      {dateRange && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            onDateRangeChange(null);
+            onPresetChange(null);
+          }}
+          className="text-gray-400 hover:text-white"
+        >
+          <X size={16} />
+        </Button>
+      )}
+    </div>
+  );
+};
+
 // --- ABANDON CONFIRMATION MODAL ---
 const AbandonConfirmationModal = ({
   isOpen,
@@ -311,6 +451,7 @@ const AbandonConfirmationModal = ({
     </div>
   );
 };
+
 // --- NOTE MODAL COMPONENT ---
 const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
   const [noteText, setNoteText] = useState("");
@@ -369,6 +510,7 @@ const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
     </div>
   );
 };
+
 // --- UPDATED ORDER MODAL ---
 const OrderModal = ({
   order,
@@ -686,6 +828,7 @@ const OrderModal = ({
     </div>
   );
 };
+
 // --- LOGIC HELPERS ---
 const getShippingLocation = (shippingCost) => {
   if (shippingCost === 60)
@@ -694,6 +837,7 @@ const getShippingLocation = (shippingCost) => {
     return { location: "Outside Dhaka", color: "text-orange-400" };
   return { location: "N/A", color: "text-gray-400" };
 };
+
 const formatTimeAgo = (dateString) => {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
@@ -708,6 +852,7 @@ const formatTimeAgo = (dateString) => {
   if (hours < 24) return `${hours} hr ago`;
   return `${days} days ago`;
 };
+
 // --- MAIN COMPONENT ---
 export default function App() {
   const [orders, setOrders] = useState([]);
@@ -717,16 +862,25 @@ export default function App() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Date filtering state
+  const [dateRange, setDateRange] = useState(null);
+  const [selectedPreset, setSelectedPreset] = useState(null);
+  
   // Abandon State
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [orderToAbandon, setOrderToAbandon] = useState(null);
+  
   // Note Modal State
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [noteOrder, setNoteOrder] = useState(null);
+  
   // Status filter state
   const [statusFilter, setStatusFilter] = useState(null);
+  
   // COLLAPSIBLE STATE (Only for the Status Widgets now)
   const [isStatusWidgetOpen, setIsStatusWidgetOpen] = useState(false);
+
   // Calculate Status Counts
   const statusCounts = useMemo(() => {
     const counts = {
@@ -760,10 +914,12 @@ export default function App() {
     });
     return counts;
   }, [orders]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -812,6 +968,7 @@ export default function App() {
     };
     fetchOrders();
   }, []);
+
   // --- HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
     if (newStatus === "Abandoned") {
@@ -837,6 +994,7 @@ export default function App() {
       console.error(e);
     }
   };
+
   const proceedWithAbandon = async () => {
     if (!orderToAbandon) return;
     if (
@@ -881,6 +1039,7 @@ export default function App() {
       alert("A network or server error occurred. Check console.");
     }
   };
+
   const handleCallStatusChange = async (id, newCallStatus) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, callStatus: newCallStatus } : o))
@@ -900,6 +1059,7 @@ export default function App() {
       console.error(e);
     }
   };
+
   const handleShippingMethodChange = async (id, newMethod) => {
     const selectedOption = SHIPPING_METHOD_OPTIONS.find(
       (option) => option.value === newMethod
@@ -941,6 +1101,7 @@ export default function App() {
       console.error(e);
     }
   };
+
   const handlePriceChange = async (id, newPrice) => {
     const price = Number(newPrice);
     if (isNaN(price)) return;
@@ -963,6 +1124,7 @@ export default function App() {
       console.error("Failed to update price", e);
     }
   };
+
   const handleSaveNote = async (id, noteText) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, note: noteText } : o))
@@ -983,10 +1145,12 @@ export default function App() {
       alert("Failed to save note to server");
     }
   };
+
   const openNoteModal = (order) => {
     setNoteOrder(order);
     setIsNoteModalOpen(true);
   };
+
   const handleStatusWidgetClick = (statusKey) => {
     if (statusFilter === statusKey) {
       setStatusFilter(null);
@@ -995,6 +1159,7 @@ export default function App() {
     }
     setCurrentPage(1);
   };
+
   // --- UPDATED FILTER LOGIC FOR NO ANSWER AND READY TO SHIP ---
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter(
@@ -1003,6 +1168,21 @@ export default function App() {
         o.customer?.phone?.includes(searchTerm) ||
         o.id?.toString().includes(searchTerm)
     );
+    
+    // Apply date range filter
+    if (dateRange && dateRange.from) {
+      const fromDate = new Date(dateRange.from);
+      fromDate.setHours(0, 0, 0, 0);
+      
+      const toDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
+      toDate.setHours(23, 59, 59, 999);
+      
+      filtered = filtered.filter((o) => {
+        const orderDate = new Date(o.date);
+        return orderDate >= fromDate && orderDate <= toDate;
+      });
+    }
+    
     if (statusFilter === "No Answer") {
       // Logic for the specific No Answer tab
       filtered = filtered.filter((o) => o.callStatus === "No Answer");
@@ -1014,14 +1194,17 @@ export default function App() {
       filtered = filtered.filter((o) => o.status === statusFilter);
     }
     return filtered;
-  }, [orders, searchTerm, statusFilter]);
+  }, [orders, searchTerm, statusFilter, dateRange]);
+
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredOrders.slice(start, start + itemsPerPage);
   }, [filteredOrders, currentPage, itemsPerPage]);
+
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
+
   // --- UPDATED WIDGETS CONFIGURATION ---
   const statusWidgets = [
     {
@@ -1091,6 +1274,7 @@ export default function App() {
       border: "border-rose-500/20",
     },
   ];
+
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }`}</style>
@@ -1135,6 +1319,7 @@ export default function App() {
           {currentTime.toLocaleString()}
         </div>
       </header>
+
       {/* STATISTICS SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
@@ -1153,6 +1338,7 @@ export default function App() {
           </div>
         ))}
       </div>
+
       {/* Mobile Collapsible View for Status Widgets */}
       <div className="md:hidden bg-gray-800 rounded-xl border border-gray-700 mb-6 overflow-hidden">
         <button
@@ -1208,6 +1394,7 @@ export default function App() {
           </div>
         )}
       </div>
+
       {/* Desktop Grid View for Status Widgets */}
       <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
         {statusWidgets.map((w) => {
@@ -1243,34 +1430,58 @@ export default function App() {
           );
         })}
       </div>
-      {/* Active Filter Indicator */}
-      {statusFilter && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-sm text-gray-400">Active filter:</span>
-          {statusFilter === "No Answer" ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-rose-600 shadow-sm">
-              <PhoneOff size={14} />
-              No Answer
+
+      {/* Active Filter Indicators */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {statusFilter && (
+          <>
+            <span className="text-sm text-gray-400">Active filter:</span>
+            {statusFilter === "No Answer" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-rose-600 shadow-sm">
+                <PhoneOff size={14} />
+                No Answer
+              </span>
+            ) : statusFilter === "ConfirmedProcessing" ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-teal-600 shadow-sm">
+                <ClipboardCheck size={14} />
+                Ready to Ship
+              </span>
+            ) : (
+              <StatusBadge status={statusFilter} />
+            )}
+            <button
+              onClick={() => setStatusFilter(null)}
+              className="text-xs text-gray-400 hover:text-white underline"
+            >
+              Clear filter
+            </button>
+          </>
+        )}
+        
+        {dateRange && (
+          <>
+            <span className="text-sm text-gray-400">Date range:</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-blue-600 shadow-sm">
+              <Calendar size={14} />
+              {dateRange.from && dateRange.to
+                ? dateRange.from.getTime() === dateRange.to.getTime()
+                  ? format(dateRange.from, "MMM dd, yyyy")
+                  : `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                : "Custom range"
+            }
             </span>
-          ) : statusFilter === "ConfirmedProcessing" ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white bg-teal-600 shadow-sm">
-            <ClipboardCheck size={14} />
-            Ready to Ship
-          </span>
-          ) : (
-            <StatusBadge status={statusFilter} />
-          )}
-          <button
-            onClick={() => setStatusFilter(null)}
-            className="text-xs text-gray-400 hover:text-white underline"
-          >
-            Clear filter
-          </button>
-        </div>
-      )}
-      {/* SEARCH SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
-        <div className="relative w-full md:w-1/3">
+            {selectedPreset && (
+              <span className="text-xs text-gray-400">
+                ({DATE_PRESETS.find(p => p.value === selectedPreset)?.label})
+              </span>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* SEARCH AND DATE FILTER SECTION */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
+        <div className="relative w-full lg:w-1/3">
           <input
             type="text"
             placeholder="Search orders..."
@@ -1283,28 +1494,42 @@ export default function App() {
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
           />
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <label className="text-sm text-gray-400">Rows per page:</label>
-          <div className="relative">
-            <select
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+        
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+          {/* Date Range Picker */}
+          <div className="w-full sm:w-auto">
+            <DateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              selectedPreset={selectedPreset}
+              onPresetChange={setSelectedPreset}
             />
+          </div>
+          
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <label className="text-sm text-gray-400">Rows per page:</label>
+            <div className="relative">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="inter-font appearance-none rounded-md border border-gray-600 bg-gray-900 py-1.5 pl-3 pr-8 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+            </div>
           </div>
         </div>
       </div>
+
       {/* TABLE SECTION */}
       <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
@@ -1460,6 +1685,7 @@ export default function App() {
           </table>
         </div>
       </div>
+
       {totalPages > 1 && (
         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p className="text-gray-400">
