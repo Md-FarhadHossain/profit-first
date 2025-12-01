@@ -1196,6 +1196,14 @@ export default function App() {
       border: "border-teal-500/20",
     },
     {
+      label: "No Answer",
+      key: "No Answer",
+      icon: PhoneOff,
+      color: "text-rose-400",
+      bg: "bg-rose-500/10",
+      border: "border-rose-500/20",
+    },
+    {
       label: "Shipped",
       key: "Shipped",
       icon: Truck,
@@ -1235,15 +1243,7 @@ export default function App() {
       bg: "bg-slate-500/10",
       border: "border-slate-500/20",
     },
-    // NO ANSWER WIDGET
-    {
-      label: "No Answer",
-      key: "No Answer",
-      icon: PhoneOff,
-      color: "text-rose-400",
-      bg: "bg-rose-500/10",
-      border: "border-rose-500/20",
-    },
+ 
   ];
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
