@@ -45,7 +45,6 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isYesterday, isThisMonth, isThisYear } from "date-fns";
-
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
   { label: "Processing", value: "Processing" },
@@ -65,7 +64,6 @@ const SHIPPING_METHOD_OPTIONS = [
   { label: "Inside Dhaka", value: "Inside Dhaka", cost: 60 },
   { label: "Outside Dhaka", value: "Outside Dhaka", cost: 99 },
 ];
-
 // --- DATE PRESET OPTIONS ---
 const DATE_PRESETS = [
   { label: "Today", value: "today", getDateRange: () => {
@@ -95,7 +93,6 @@ const DATE_PRESETS = [
   }},
   { label: "Custom Range", value: "custom", getDateRange: () => null },
 ];
-
 // --- HELPER: MODEL MAPPING ---
 const DEVICE_CODEX = {
   "23129RAA4G": "Redmi Note 13 5G",
@@ -105,7 +102,6 @@ const DEVICE_CODEX = {
   "iPhone16,1": "iPhone 15 Pro",
   "iPhone16,2": "iPhone 15 Pro Max",
 };
-
 // --- ADVANCED USER AGENT PARSER ---
 const getDeepUserAgentInfo = (uaString) => {
   if (!uaString) return null;
@@ -165,7 +161,6 @@ const getDeepUserAgentInfo = (uaString) => {
     summary,
   };
 };
-
 // --- HELPER COMPONENTS ---
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -187,7 +182,6 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
 const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
   const statusStyles = {
     Confirmed:
@@ -228,7 +222,6 @@ const CallStatusDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
-
 const ActionDropdown = ({ currentStatus, onStatusChange }) => {
   const statusStyles = {
     Shipped:
@@ -270,7 +263,6 @@ const ActionDropdown = ({ currentStatus, onStatusChange }) => {
     </div>
   );
 };
-
 const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
   const methodStyles = {
     "Inside Dhaka":
@@ -305,7 +297,6 @@ const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
     </div>
   );
 };
-
 // --- DATE RANGE PICKER COMPONENT ---
 const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPresetChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -318,7 +309,6 @@ const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPrese
       setIsOpen(false);
     }
   };
-
   const formatDateDisplay = (range) => {
     if (!range) return "Select dates";
     if (range.from && range.to) {
@@ -332,7 +322,6 @@ const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPrese
     }
     return "Select dates";
   };
-
   return (
     <div className="flex items-center gap-2">
       <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -404,7 +393,6 @@ const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPrese
     </div>
   );
 };
-
 // --- ABANDON CONFIRMATION MODAL ---
 const AbandonConfirmationModal = ({
   isOpen,
@@ -451,7 +439,6 @@ const AbandonConfirmationModal = ({
     </div>
   );
 };
-
 // --- NOTE MODAL COMPONENT ---
 const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
   const [noteText, setNoteText] = useState("");
@@ -510,7 +497,6 @@ const NoteModal = ({ isOpen, onClose, onSave, order, initialNote }) => {
     </div>
   );
 };
-
 // --- UPDATED ORDER MODAL ---
 const OrderModal = ({
   order,
@@ -828,7 +814,6 @@ const OrderModal = ({
     </div>
   );
 };
-
 // --- LOGIC HELPERS ---
 const getShippingLocation = (shippingCost) => {
   if (shippingCost === 60)
@@ -837,7 +822,6 @@ const getShippingLocation = (shippingCost) => {
     return { location: "Outside Dhaka", color: "text-orange-400" };
   return { location: "N/A", color: "text-gray-400" };
 };
-
 const formatTimeAgo = (dateString) => {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
@@ -852,7 +836,6 @@ const formatTimeAgo = (dateString) => {
   if (hours < 24) return `${hours} hr ago`;
   return `${days} days ago`;
 };
-
 // --- MAIN COMPONENT ---
 export default function App() {
   const [orders, setOrders] = useState([]);
@@ -880,7 +863,6 @@ export default function App() {
   
   // COLLAPSIBLE STATE (Only for the Status Widgets now)
   const [isStatusWidgetOpen, setIsStatusWidgetOpen] = useState(false);
-
   // Calculate Status Counts
   const statusCounts = useMemo(() => {
     const counts = {
@@ -902,8 +884,8 @@ export default function App() {
       } else {
         counts.Processing++;
       }
-      // NEW: Specific Call Status Count
-      if (order.callStatus === "No Answer") {
+      // NEW: Specific Call Status Count - EXCLUDING Fake, Cancelled, Returned, Abandoned
+      if (order.callStatus === "No Answer" && !["Fake", "Cancelled", "Returned", "Abandoned"].includes(order.status)) {
         counts["No Answer"]++;
       }
       
@@ -914,12 +896,10 @@ export default function App() {
     });
     return counts;
   }, [orders]);
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -968,7 +948,6 @@ export default function App() {
     };
     fetchOrders();
   }, []);
-
   // --- HANDLERS ---
   const handleStatusChange = async (id, newStatus) => {
     if (newStatus === "Abandoned") {
@@ -994,7 +973,6 @@ export default function App() {
       console.error(e);
     }
   };
-
   const proceedWithAbandon = async () => {
     if (!orderToAbandon) return;
     if (
@@ -1039,7 +1017,6 @@ export default function App() {
       alert("A network or server error occurred. Check console.");
     }
   };
-
   const handleCallStatusChange = async (id, newCallStatus) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, callStatus: newCallStatus } : o))
@@ -1059,7 +1036,6 @@ export default function App() {
       console.error(e);
     }
   };
-
   const handleShippingMethodChange = async (id, newMethod) => {
     const selectedOption = SHIPPING_METHOD_OPTIONS.find(
       (option) => option.value === newMethod
@@ -1101,7 +1077,6 @@ export default function App() {
       console.error(e);
     }
   };
-
   const handlePriceChange = async (id, newPrice) => {
     const price = Number(newPrice);
     if (isNaN(price)) return;
@@ -1124,7 +1099,6 @@ export default function App() {
       console.error("Failed to update price", e);
     }
   };
-
   const handleSaveNote = async (id, noteText) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, note: noteText } : o))
@@ -1145,12 +1119,10 @@ export default function App() {
       alert("Failed to save note to server");
     }
   };
-
   const openNoteModal = (order) => {
     setNoteOrder(order);
     setIsNoteModalOpen(true);
   };
-
   const handleStatusWidgetClick = (statusKey) => {
     if (statusFilter === statusKey) {
       setStatusFilter(null);
@@ -1159,7 +1131,6 @@ export default function App() {
     }
     setCurrentPage(1);
   };
-
   // --- UPDATED FILTER LOGIC FOR NO ANSWER AND READY TO SHIP ---
   const filteredOrders = useMemo(() => {
     let filtered = orders.filter(
@@ -1184,8 +1155,11 @@ export default function App() {
     }
     
     if (statusFilter === "No Answer") {
-      // Logic for the specific No Answer tab
-      filtered = filtered.filter((o) => o.callStatus === "No Answer");
+      // Logic for the specific No Answer tab: Call Status is No Answer AND Status is NOT Fake/Cancelled/Returned
+      filtered = filtered.filter((o) => 
+        o.callStatus === "No Answer" && 
+        !["Fake", "Cancelled", "Returned", "Abandoned"].includes(o.status)
+      );
     } else if (statusFilter === "ConfirmedProcessing") {
       // Logic for Ready to Ship (Processing + Confirmed)
       filtered = filtered.filter((o) => o.status === "Processing" && o.callStatus === "Confirmed");
@@ -1195,16 +1169,13 @@ export default function App() {
     }
     return filtered;
   }, [orders, searchTerm, statusFilter, dateRange]);
-
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredOrders.slice(start, start + itemsPerPage);
   }, [filteredOrders, currentPage, itemsPerPage]);
-
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, filteredOrders.length);
-
   // --- UPDATED WIDGETS CONFIGURATION ---
   const statusWidgets = [
     {
@@ -1217,7 +1188,7 @@ export default function App() {
     },
     // NEW READY TO SHIP WIDGET (Confirmed Processing)
     {
-      label: "Ready to Ship",
+      label: "Ready",
       key: "ConfirmedProcessing",
       icon: ClipboardCheck,
       color: "text-teal-400",
@@ -1274,7 +1245,6 @@ export default function App() {
       border: "border-rose-500/20",
     },
   ];
-
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
       <style>{`.inter-font { font-family: "Inter", sans-serif; } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }`}</style>
@@ -1319,7 +1289,6 @@ export default function App() {
           {currentTime.toLocaleString()}
         </div>
       </header>
-
       {/* STATISTICS SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
@@ -1338,7 +1307,6 @@ export default function App() {
           </div>
         ))}
       </div>
-
       {/* Mobile Collapsible View for Status Widgets */}
       <div className="md:hidden bg-gray-800 rounded-xl border border-gray-700 mb-6 overflow-hidden">
         <button
@@ -1394,7 +1362,6 @@ export default function App() {
           </div>
         )}
       </div>
-
       {/* Desktop Grid View for Status Widgets */}
       <div className="hidden md:grid md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
         {statusWidgets.map((w) => {
@@ -1430,7 +1397,6 @@ export default function App() {
           );
         })}
       </div>
-
       {/* Active Filter Indicators */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {statusFilter && (
@@ -1478,7 +1444,6 @@ export default function App() {
           </>
         )}
       </div>
-
       {/* SEARCH AND DATE FILTER SECTION */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-gray-800/50 p-4 rounded-lg border border-gray-700/50 mb-5">
         <div className="relative w-full lg:w-1/3">
@@ -1529,7 +1494,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
       {/* TABLE SECTION */}
       <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-xl">
         <div className="overflow-x-auto">
@@ -1685,7 +1649,6 @@ export default function App() {
           </table>
         </div>
       </div>
-
       {totalPages > 1 && (
         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p className="text-gray-400">
