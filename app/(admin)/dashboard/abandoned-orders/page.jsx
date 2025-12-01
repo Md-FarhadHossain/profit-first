@@ -631,7 +631,14 @@ export default function PendingOrdersPage() {
                               </div>
                               <div>
                                 <p className="text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">{order.customer.name}</p>
-                                <p className="text-xs text-gray-500 font-mono mt-0.5">{order.customer.phone}</p>
+                                <p className="text-xs text-gray-500 font-mono mt-0.5 lg:block md:block hidden">{order.customer.phone}</p>
+
+                                  <a
+                            href={`tel:${order.customer?.phone}`}
+                            className="text-xs text-gray-400 mt-0.5 hover:text-blue-500 hover:underline cursor-pointer block lg:hidden md:hidden"
+                          >
+                            {order.customer?.phone}
+                          </a>
                               </div>
                            </div>
                          </td>
