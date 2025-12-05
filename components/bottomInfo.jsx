@@ -1,5 +1,6 @@
 "use client"
 import React, { useEffect } from 'react';
+import coverPh from "@/public/pf-cover-ph.png"
 
 export default function HeroSection() {
   // Load Fonts and Icons

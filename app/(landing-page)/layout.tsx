@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
 import localFont from 'next/font/local'
 import Script from "next/script";
 
@@ -76,7 +75,7 @@ export default function RootLayout({
 </Script>
 
         
-        <ClerkProvider>{children}</ClerkProvider>
+       {children}
 
    
       </body>

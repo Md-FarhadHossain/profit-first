@@ -11,7 +11,8 @@ import {
   Package, 
   X,
   ShoppingCart,
-  HatGlasses
+  HatGlasses,
+  TrendingUp
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -75,10 +76,15 @@ export default function Sidebar() {
       icon: ShoppingCart 
     },
     { 
+      label: 'Stock Management', 
+      path: '/dashboard/StockManagement', 
+      icon: TrendingUp 
+    },
+    { 
       label: 'Block User', 
       path: '/dashboard/block-scammer', 
       icon: HatGlasses 
-    }
+    },
   ];
 
   const isActive = (path) => pathname === path;
