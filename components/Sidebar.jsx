@@ -12,7 +12,8 @@ import {
   X,
   ShoppingCart,
   HatGlasses,
-  TrendingUp
+  TrendingUp,
+  PackagePlus
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -83,7 +84,7 @@ export default function Sidebar() {
     { 
       label: 'Add Order', 
       path: '/dashboard/add-order', 
-      icon: TrendingUp 
+      icon: PackagePlus 
     },
     { 
       label: 'Block User', 
