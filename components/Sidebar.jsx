@@ -81,6 +81,11 @@ export default function Sidebar() {
       icon: TrendingUp 
     },
     { 
+      label: 'Add Order', 
+      path: '/dashboard/add-order', 
+      icon: TrendingUp 
+    },
+    { 
       label: 'Block User', 
       path: '/dashboard/block-scammer', 
       icon: HatGlasses 
