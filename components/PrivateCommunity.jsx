@@ -1,41 +1,48 @@
 "use client"
 import React from 'react';
 import { Users, ArrowRight, Star, ThumbsUp, Facebook, Quote, BadgeCheck } from 'lucide-react';
+import page1 from "@/public/fbpage-1.jpg"
+import page2 from "@/public/fbpage-2.jpg"
+import page3 from "@/public/fbpage-3.jpg"
+import page4 from "@/public/fbpage-4.jpg"
+import page5 from "@/public/fbpage-5.jpg"
+import Image from 'next/image';
+
+
 
 // Data moved outside component for better performance
 const entrepreneurs = [
   {
     id: 1,
     pageName: "Sukher Khamar - সুখের খামার",
-    pageLogo: "https://scontent.fjsr17-1.fna.fbcdn.net/v/t39.30808-6/491099432_122188109366263546_3813264847492246776_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=4kSPLphehB4Q7kNvwE0fGf6&_nc_oc=Adm09OHOeRurTPeqmKdWqY9tDzfiO-5nnOxGD4D7--71oIGt6gDc4G2d7rooeVB4SAE&_nc_zt=23&_nc_ht=scontent.fjsr17-1.fna&_nc_gid=HEVd2pje2zOiJpA647amUg&oh=00_AfhhxaVzR3W7vn-AjLN_TvPp335VuvaSS2BDxMGgeaqFHg&oe=69312649",
+    pageLogo: page1,
     category: "Agriculture",
     likes: "220K+",
   },
   {
     id: 2,
     pageName: "Hope71",
-    pageLogo: "https://scontent.fjsr8-1.fna.fbcdn.net/v/t39.30808-6/474951435_604902688965102_818565527186838940_n.jpg?_nc_cat=1&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=rly_tF-N-EUQ7kNvwGqYjDD&_nc_oc=AdnbTfOgzeW1dYqEGoTdAWYR44bFYkXKAMtdklNNWwHUJjGsn6dxEWKfCsddAojtJ1k&_nc_zt=23&_nc_ht=scontent.fjsr8-1.fna&_nc_gid=voA81EdEyijWR79NT26_pA&oh=00_Afhz0d6tdhnBG9sW2T3IzfskZVbEgWzd5deqfeNUdngjjQ&oe=693135CE",
+    pageLogo: page2,
     category: "Clothing (brand)",
     likes: "208K+",
   },
   {
     id: 3,
     pageName: "KORAS",
-    pageLogo: "https://scontent.fjsr17-1.fna.fbcdn.net/v/t39.30808-6/465472162_1102711171857110_3127363895963666204_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=c1FwtZ-cTzMQ7kNvwFvEssC&_nc_oc=AdkjmF_Gw4BmCOvhPtoRJ6kZaIqaBEMaKEZThEBTI6L-O8ABr02Daab8565u0oVqcDc&_nc_zt=23&_nc_ht=scontent.fjsr17-1.fna&_nc_gid=eo62JXdzqhXPd4dzwBuKzQ&oh=00_AfhIRbIApynRWfoRbYKoVwYYuurA-td0VcGwg9tP0sN8aw&oe=693134C6",
+    pageLogo: page3,
     category: "Clothing (brand)",
     likes: "69K+",
   },
   {
     id: 4,
     pageName: "Musami Leather",
-    pageLogo: "https://scontent.fjsr8-1.fna.fbcdn.net/v/t39.30808-6/481286041_122140982462529641_3447840312733276465_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=apIN-gevkJcQ7kNvwFNfwZm&_nc_oc=Adk0TRwunyyl0y8OQjdeT463rpA5EaVRdufNxoZtY7yD2RpIkb1RK-4bsQKNj5wg1Mo&_nc_zt=23&_nc_ht=scontent.fjsr8-1.fna&_nc_gid=f68OB6u9mmYJrTQ1seWVnQ&oh=00_Afg-AqL6abV0-OioUoaSD6iEOm3umi0Ia10JLKvn-mLr9g&oe=69313C9D",
-    category: "Leather Products",
+    pageLogo: page4,
     likes: "69K+",
   },
   {
     id: 5,
     pageName: "Kabbik",
-    pageLogo: "https://scontent.fjsr8-1.fna.fbcdn.net/v/t39.30808-6/272095328_102316415694734_4465619999442417131_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=T8dAUdx8ITQQ7kNvwEM03hF&_nc_oc=AdmnE1q9bf0mjR-dIWv8e1LQl1fpVcOY6P4d_aE9x4HUqvC3_KSuslH7wDmgzaOVCk4&_nc_zt=23&_nc_ht=scontent.fjsr8-1.fna&_nc_gid=tSGr-ge8G1SfN7S3rE4Msg&oh=00_Afj--a5sMooyDklgsY0UKvbD751xLvEY8K9zA6khEL9P7Q&oe=69311B50",
+    pageLogo: page5,
     category: "Arts & Entertainment",
     likes: "125K+",
     quote: "প্রফিট ফার্স্ট মেথড আর এই কমিউনিটির গাইডলাইন—দুটো মিলেই আমার সাকসেস।"
@@ -84,7 +91,7 @@ const PrivateCommunity = () => {
               {/* Card Header: Identity */}
               <div className="p-5 flex items-start gap-4 border-b border-slate-50">
                 <div className="relative shrink-0">
-                  <img 
+                  <Image 
                     src={item.pageLogo} 
                     alt={item.pageName} 
                     className="w-24 h-24 md:w-16 md:h-16 rounded-full object-cover ring-2 ring-[#0866ff] shadow-md group-hover:scale-105 transition-transform duration-300"
@@ -107,9 +114,7 @@ const PrivateCommunity = () => {
                     <span>{item.likes} Followers</span>
                   </div>
                 </div>
-              </div>
-
-           
+              </div>   
             </div>
           ))}
         </div>
@@ -135,7 +140,6 @@ const PrivateCommunity = () => {
             </a>
           </div>
         </div>
-
       </div>
 
       {/* Tailwind Animation for Button Shine (Add to global css if not present, but safe to include inline styles usually) */}
