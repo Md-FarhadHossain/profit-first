@@ -33,6 +33,7 @@ const HeaderSection = () => {
         {/* <AniOrderNowBtn />   */}
         <BookInfo />
         <AllReaders />
+      <BookVideo />
         <PrivateCommunity />
         <BookInside />
         {/* <WhatsInside /> */}
@@ -42,7 +43,6 @@ const HeaderSection = () => {
       <div>
         <Testimonials />
       </div>
-      {/* <BookVideo /> */}
       <GetsTheBook />
 
       <ReaderSaid />
