@@ -6,6 +6,7 @@ import page2 from "@/public/fbpage-2.jpg"
 import page3 from "@/public/fbpage-3.jpg"
 import page4 from "@/public/fbpage-4.jpg"
 import page5 from "@/public/fbpage-5.jpg"
+import page6 from "@/public/fbpage-6.jpg"
 import Image from 'next/image';
 
 
@@ -17,7 +18,7 @@ const entrepreneurs = [
     pageName: "Sukher Khamar - সুখের খামার",
     pageLogo: page1,
     category: "Agriculture",
-    likes: "220K+",
+    likes: "222K+",
   },
   {
     id: 2,
@@ -25,6 +26,14 @@ const entrepreneurs = [
     pageLogo: page2,
     category: "Clothing (brand)",
     likes: "208K+",
+  },
+  {
+    id: 6,
+    pageName: "Rahul Group (রাহুল গ্রুপ)",
+    pageLogo: page6,
+    category: "Organic Food",
+    likes: "178K+",
+    quote: "প্রফিট ফার্স্ট মেথড আর এই কমিউনিটির গাইডলাইন—দুটো মিলেই আমার সাকসেস।"
   },
   {
     id: 3,
@@ -46,7 +55,8 @@ const entrepreneurs = [
     category: "Arts & Entertainment",
     likes: "125K+",
     quote: "প্রফিট ফার্স্ট মেথড আর এই কমিউনিটির গাইডলাইন—দুটো মিলেই আমার সাকসেস।"
-  }
+  },
+  
 ];
 
 const PrivateCommunity = () => {

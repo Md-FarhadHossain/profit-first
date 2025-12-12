@@ -81,12 +81,12 @@ export default function App() {
       
       <div className="flex flex-col items-center pt-16 bg-white font-['Inter',sans-serif]">
         
-        <h1 className="text-4xl mb-6 text-center font-bold text-gray-800 px-4">
+        <h1 className="text-4xl mb-6 text-center font-bold text-gray-800 px-">
           বইটি কি বিষয়ে এক নজরে ভিডিওতে দেখে নিন!
         </h1>
 
         {/* Main Video Container */}
-        <div className="relative w-full max-w-[900px] px-4 mb-16">
+        <div className="relative w-full max-w-[900px] px- mb-8">
           <div className="relative w-full rounded-[20px] overflow-hidden shadow-2xl bg-black group">
             
             {/* Aspect Ratio Maintainer & Video Area */}
@@ -104,7 +104,7 @@ export default function App() {
               <div 
                 className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-opacity duration-300 pointer-events-none ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
               >
-                 <div className="w-0 h-0 border-t-[15px] border-t-transparent border-l-[25px] border-l-white border-b-[15px] border-b-transparent ml-2"></div>
+                 <div className="w-0 h-0 border-t-15 border-t-transparent border-l-25 border-l-white border-b-15 border-b-transparent ml-2"></div>
               </div>
             </div>
 
