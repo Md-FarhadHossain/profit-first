@@ -17,7 +17,7 @@ export default function App() {
 
     window.onYouTubeIframeAPIReady = () => {
       playerRef.current = new window.YT.Player('player', {
-        videoId: 'AhGiQIJmqnk',
+        videoId: 'f__152v8rfE',
         playerVars: {
           autoplay: 0,
           controls: 0, // Disable native controls
