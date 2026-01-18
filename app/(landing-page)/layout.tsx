@@ -4,9 +4,6 @@ import "../globals.css";
 import localFont from 'next/font/local'
 import Script from "next/script";
 
-
-
-
 const myFont = localFont({
   src: '../../public/ekkushe-lalshalu.ttf',
 })
@@ -36,8 +33,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased ${myFont.className}`}
       >
-
-         <noscript>
+        <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-TGJBSWJ7"
             height="0"
@@ -45,7 +41,8 @@ export default function RootLayout({
             style={{ display: "none", visibility: "hidden" }}
           ></iframe>
         </noscript>
-     
+      
+        {/* Google Tag Manager Script */}
         <Script id="google-tag-manager-head">
           {`
             (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -56,27 +53,36 @@ export default function RootLayout({
           `}
         </Script>
 
+        {/* Microsoft Clarity Script - Added Here */}
+        <Script id="microsoft-clarity-analytics" strategy="afterInteractive">
+          {`
+            (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "v3clegqg1w");
+          `}
+        </Script>
 
-        <Script strategy="afterInteractive">
-  {`
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const targetId = this.getAttribute('href').substring(1);
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-          setTimeout(() => {
-            targetElement.scrollIntoView({ behavior: 'smooth' });
-          }, 100);
-        }
-      });
-    });
-  `}
-</Script>
-
+        {/* Smooth Scroll Script */}
+        <Script id="smooth-scroll" strategy="afterInteractive">
+          {`
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+              anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                  setTimeout(() => {
+                    targetElement.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                }
+              });
+            });
+          `}
+        </Script>
         
-       {children}
-
+        {children}
    
       </body>
     </html>
