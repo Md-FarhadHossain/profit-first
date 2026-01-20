@@ -1,8 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
-// --- ENSURE THIS IMPORT MATCHES YOUR FILE STRUCTURE ---
-// If you used the Server Action guide, it is likely: '@/app/actions/fraudCheck'
-import { checkFraudResult } from '@/app/api/check-fraud/route'; 
+ 
 
 import {
   Search,
@@ -165,95 +163,7 @@ const getDeepUserAgentInfo = (uaString) => {
 };
 
 // --- UPDATED FRAUD CHECKER BADGE (Full Width for Action Column) ---
-const FraudBadge = ({ phone }) => {
-    const [status, setStatus] = useState("idle"); // idle, loading, success, error
-    const [data, setData] = useState(null);
-  
-    const handleCheck = async (e) => {
-      e.stopPropagation(); // Prevent opening order modal
-      if (!phone || phone.length < 11) {
-          alert("Invalid Phone Number");
-          return;
-      }
-      setStatus("loading");
-      try {
-        const res = await checkFraudResult(phone);
-        if (res.success) {
-           setData(res.data);
-           setStatus("success");
-        } else {
-           setStatus("error");
-        }
-      } catch (err) {
-        console.error(err);
-        setStatus("error");
-      }
-    };
-  
-    if (status === "idle") {
-      return (
-         <button 
-           onClick={handleCheck} 
-           className="w-40 bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs py-1.5 rounded-md border border-gray-600 flex items-center justify-center gap-2 transition-colors"
-         >
-            <ShieldCheck size={14} /> Check Risk
-         </button>
-      )
-    }
-  
-    if (status === "loading") {
-      return <div className="w-40 text-center py-1.5 text-xs text-gray-500 animate-pulse bg-gray-900 rounded-md border border-gray-800">Checking...</div>
-    }
-  
-    if (status === "success" && data) {
-       const total = data.total_parcels;
-       const delivered = data.total_delivered;
-       const cancelled = data.total_cancel;
-       // Calculate success rate
-       const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
-       
-       // Risk Logic
-       const isRisk = cancelled > delivered || (total > 3 && successRate < 50);
-  
-       let colorClass = "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30";
-       let Icon = CheckCircle;
-       let text = `${successRate}% Success`;
-  
-       if (isRisk) {
-          colorClass = "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30";
-          Icon = AlertTriangle;
-          text = "High Risk";
-       } else if (total === 0) {
-          colorClass = "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
-          Icon = Info;
-          text = "New User";
-       }
-  
-       return (
-          <div className="group relative w-40">
-             <div className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border text-xs font-bold uppercase tracking-wide cursor-help transition-colors ${colorClass}`}>
-                <Icon size={14} /> {text}
-             </div>
-             {/* Tooltip on Hover */}
-             <div className="absolute right-0 top-full mt-2 hidden group-hover:block w-48 bg-gray-950 border border-gray-700 p-3 rounded-lg shadow-2xl z-50 text-xs">
-                <div className="text-[10px] uppercase text-gray-500 font-bold mb-2 pb-1 border-b border-gray-800">Fraud Database</div>
-                <div className="grid grid-cols-2 gap-y-1">
-                   <span className="text-gray-400">Total:</span> 
-                   <span className="text-right font-bold text-white">{total}</span>
-                   
-                   <span className="text-gray-400">Delivered:</span> 
-                   <span className="text-right font-bold text-green-400">{delivered}</span>
-                   
-                   <span className="text-gray-400">Cancelled:</span> 
-                   <span className="text-right font-bold text-red-400">{cancelled}</span>
-                </div>
-             </div>
-          </div>
-       )
-    }
-  
-    return <div className="w-40 text-center py-1.5 text-xs text-red-500 bg-red-900/10 border border-red-900/20 rounded-md">Failed</div>
-  }
+
 
 
 // --- HELPER COMPONENTS ---
@@ -1728,8 +1638,7 @@ export default function App() {
                                  handleStatusChange(order.id, newStatus)
                               }
                            />
-                           {/* Fraud Badge moved here */}
-                           <FraudBadge phone={order.customer?.phone} />
+
                         </div>
                       </td>
                     </tr>
