@@ -8,46 +8,7 @@ import { XCircle, MessageCircle, Facebook } from "lucide-react";
 
 // --- FAKE 404 COMPONENT (The Trap) ---
 // This mimics a standard "Page Not Found" to fool the scammer
-const Fake404 = () => {
-    return (
-        <div style={{
-            height: "100vh",
-            width: "100vw",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-            color: "#000",
-            backgroundColor: "#fff",
-            textAlign: "center",
-            padding: "20px",
-            position: "fixed",
-            top: 0,
-            left: 0,
-            zIndex: 9999
-        }}>
-            <div style={{ display: "flex", alignItems: "center" }}>
-                <h1 style={{ 
-                    borderRight: "1px solid rgba(0, 0, 0, .3)", 
-                    marginRight: "20px", 
-                    paddingRight: "20px", 
-                    fontSize: "24px", 
-                    fontWeight: "500",
-                    display: "inline-block",
-                }}>404</h1>
-                <div style={{ 
-                    display: "inline-block", 
-                    textAlign: "left", 
-                }}>
-                    <h2 style={{ fontSize: "14px", fontWeight: "normal", margin: 0, padding: 0 }}>
-                        This page could not be found.
-                    </h2>
-                </div>
-            </div>
-        </div>
-    );
-};
+
 
 // --- HELPER: GENERATE OR GET DEVICE ID ---
 const getDeviceId = () => {
@@ -80,8 +41,9 @@ const API_URL = "https://profit-first-server.vercel.app";
 
 const HeroSection = () => {
   // --- STATE FOR BANNING ---
-  const [isBanned, setIsBanned] = useState(false);
-  const [isCheckingBan, setIsCheckingBan] = useState(true);
+  // --- STATE FOR BANNING - REMOVED ---
+  // const [isBanned, setIsBanned] = useState(false);
+  // const [isCheckingBan, setIsCheckingBan] = useState(true);
   const [shipping, setShipping] = useState("outside-dhaka");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStarted, setCheckoutStarted] = useState(false);
@@ -117,16 +79,10 @@ const HeroSection = () => {
             const deviceId = getDeviceId();
             const ua = navigator.userAgent;
 
-            // C. CRITICAL: CHECK IF BANNED IMMEDIATELY
-            const banRes = await fetch(`${API_URL}/check-ban-status?ip=${ip}&deviceId=${deviceId}`);
-            const banData = await banRes.json();
-
-            if (banData.banned) {
-                console.warn("⛔ User is banned. Access restricted.");
-                setIsBanned(true);
-                setIsCheckingBan(false);
-                return; // STOP EXECUTION
-            }
+            // C. CRITICAL: CHECK IF BANNED - REMOVED
+            // const banRes = await fetch(`${API_URL}/check-ban-status?ip=${ip}&deviceId=${deviceId}`);
+            // const banData = await banRes.json();
+            // if (banData.banned) { ... }
 
             // D. If not banned, continue setting up tracking
             setClientInfo({ ip, userAgent: ua });
@@ -170,7 +126,7 @@ const HeroSection = () => {
         } catch (error) {
             console.error("Initialization Error", error);
         } finally {
-            setIsCheckingBan(false);
+            // setIsCheckingBan(false);
         }
     };
 
@@ -179,7 +135,7 @@ const HeroSection = () => {
 
   // --- ABANDONED CART LOGIC ---
   useEffect(() => {
-    if (isBanned) return; // Don't save partials for banned users
+    // if (isBanned) return; 
     if ((!formData.name && !formData.number && !formData.address) || !behaviorData.device_id) return;
 
     const autoSaveTimer = setTimeout(async () => {
@@ -213,11 +169,11 @@ const HeroSection = () => {
     }, 1500); 
 
     return () => clearTimeout(autoSaveTimer);
-  }, [formData, shipping, behaviorData, clientInfo, marketingData, isBanned]);
+  }, [formData, shipping, behaviorData, clientInfo, marketingData]);
 
   // --- ADD TO CART TRACKING ---
   useEffect(() => {
-    if (isBanned || !sectionRef.current) return;
+    if (!sectionRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -239,10 +195,10 @@ const HeroSection = () => {
     );
     observer.observe(sectionRef.current);
     return () => observer.disconnect();
-  }, [clientInfo, isBanned]);
+  }, [clientInfo]);
 
   const handleBeginCheckout = () => {
-    if (!checkoutStarted && !isBanned) {
+    if (!checkoutStarted) {
       gtmEvent("begin_checkout", {
         visitorIP: clientInfo.ip,
         browserName: clientInfo.userAgent,
@@ -265,7 +221,7 @@ const HeroSection = () => {
 
   const handleOrder = async (event) => {
     event.preventDefault();
-    if (isSubmitting || isBanned) return;
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
@@ -301,10 +257,7 @@ const HeroSection = () => {
 
       const result = await response.json();
 
-      if (response.status === 403) {
-        setIsBanned(true); // If backend blocks during order, ban them immediately on UI
-        return; 
-      }
+      // if (response.status === 403) { setIsBanned(true); return; }
 
       if (response.status === 409 || result.reason === "active_order_exists") {
         setShowDuplicateModal(true);
@@ -313,6 +266,22 @@ const HeroSection = () => {
       }
 
       if (!response.ok || !result.success) throw new Error(result.message);
+
+      // --- SEND CONFIRMATION SMS ---
+      try {
+        await fetch("/api/send-sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name: formData.name,
+                phone: formData.number,
+                orderId: result.orderId
+            })
+        });
+      } catch (smsErr) {
+        console.error("SMS Send Error (Client-side trigger):", smsErr);
+        // Don't block redirect on SMS failure
+      }
 
       const params = new URLSearchParams({
         orderId: result.orderId.toString(),
@@ -338,17 +307,9 @@ const HeroSection = () => {
   const calculatedTotal = PRODUCT_PRICE + (shipping === "outside-dhaka" ? 99 : 60);
 
   // --- RENDER LOGIC: THE TRAP ---
-  if (isCheckingBan) {
-      return (
-        <div className="flex h-screen w-full items-center justify-center bg-white">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-red-600"></div>
-        </div>
-      );
-  }
-
-  if (isBanned) {
-      return <Fake404 />; // SHOW 404 IF BANNED
-  }
+  // --- RENDER LOGIC: THE TRAP - REMOVED ---
+  // if (isCheckingBan) { return ... }
+  // if (isBanned) { return <Fake404 />; }
 
   // --- NORMAL WEBSITE RENDER ---
   return (

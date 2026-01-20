@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 // Node.js এর বিল্ট-ইন ক্রিপ্টো মডিউল ইম্পোর্ট করা হচ্ছে
 import crypto from 'crypto';
+import { sendConfirmationSMS } from '@/lib/smsProvider';
 
 // --- SHA-256 Hashing Helper Function ---
 // এই ফাংশনটি যেকোনো টেক্সটকে হ্যাশ করে দেবে
@@ -81,6 +82,17 @@ export async function POST(request) {
         }
       ]
     };
+
+    // --- SMS Trigger ---
+    // Send confirmation SMS asynchronously
+    // We don't await this to ensure the API response is fast, or we can await if critical. 
+    // Given it's a confirmation, fire-and-forget or awaiting is fine. Here we await to log the result safely.
+    try {
+        const smsResult = await sendConfirmationSMS(customerDetails.phone, customerDetails.firstName, orderNumber);
+        console.log("SMS Triggered:", smsResult);
+    } catch (smsError) {
+        console.error("SMS Trigger Failed:", smsError);
+    }
 
     return NextResponse.json({ success: true, orderData: finalOrderData });
 

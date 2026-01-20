@@ -1,5 +1,9 @@
 "use client";
 import React, { useState, useMemo, useEffect, useRef } from "react";
+// --- ENSURE THIS IMPORT MATCHES YOUR FILE STRUCTURE ---
+// If you used the Server Action guide, it is likely: '@/app/actions/fraudCheck'
+import { checkFraudResult } from '@/app/api/check-fraud/route'; 
+
 import {
   Search,
   ChevronLeft,
@@ -23,13 +27,10 @@ import {
   PhoneCall,
   PhoneOff,
   Check,
-  Monitor,
   Smartphone,
   Globe,
-  Cpu,
   Share2,
   Zap,
-  LayoutTemplate,
   Info,
   ShieldCheck,
   AlertTriangle,
@@ -44,7 +45,8 @@ import { UAParser } from "ua-parser-js";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isYesterday, isThisMonth, isThisYear } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+
 // --- CONFIGURATION ---
 const ACTION_OPTIONS = [
   { label: "Processing", value: "Processing" },
@@ -161,6 +163,99 @@ const getDeepUserAgentInfo = (uaString) => {
     summary,
   };
 };
+
+// --- UPDATED FRAUD CHECKER BADGE (Full Width for Action Column) ---
+const FraudBadge = ({ phone }) => {
+    const [status, setStatus] = useState("idle"); // idle, loading, success, error
+    const [data, setData] = useState(null);
+  
+    const handleCheck = async (e) => {
+      e.stopPropagation(); // Prevent opening order modal
+      if (!phone || phone.length < 11) {
+          alert("Invalid Phone Number");
+          return;
+      }
+      setStatus("loading");
+      try {
+        const res = await checkFraudResult(phone);
+        if (res.success) {
+           setData(res.data);
+           setStatus("success");
+        } else {
+           setStatus("error");
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("error");
+      }
+    };
+  
+    if (status === "idle") {
+      return (
+         <button 
+           onClick={handleCheck} 
+           className="w-40 bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs py-1.5 rounded-md border border-gray-600 flex items-center justify-center gap-2 transition-colors"
+         >
+            <ShieldCheck size={14} /> Check Risk
+         </button>
+      )
+    }
+  
+    if (status === "loading") {
+      return <div className="w-40 text-center py-1.5 text-xs text-gray-500 animate-pulse bg-gray-900 rounded-md border border-gray-800">Checking...</div>
+    }
+  
+    if (status === "success" && data) {
+       const total = data.total_parcels;
+       const delivered = data.total_delivered;
+       const cancelled = data.total_cancel;
+       // Calculate success rate
+       const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
+       
+       // Risk Logic
+       const isRisk = cancelled > delivered || (total > 3 && successRate < 50);
+  
+       let colorClass = "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30";
+       let Icon = CheckCircle;
+       let text = `${successRate}% Success`;
+  
+       if (isRisk) {
+          colorClass = "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30";
+          Icon = AlertTriangle;
+          text = "High Risk";
+       } else if (total === 0) {
+          colorClass = "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600";
+          Icon = Info;
+          text = "New User";
+       }
+  
+       return (
+          <div className="group relative w-40">
+             <div className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-md border text-xs font-bold uppercase tracking-wide cursor-help transition-colors ${colorClass}`}>
+                <Icon size={14} /> {text}
+             </div>
+             {/* Tooltip on Hover */}
+             <div className="absolute right-0 top-full mt-2 hidden group-hover:block w-48 bg-gray-950 border border-gray-700 p-3 rounded-lg shadow-2xl z-50 text-xs">
+                <div className="text-[10px] uppercase text-gray-500 font-bold mb-2 pb-1 border-b border-gray-800">Fraud Database</div>
+                <div className="grid grid-cols-2 gap-y-1">
+                   <span className="text-gray-400">Total:</span> 
+                   <span className="text-right font-bold text-white">{total}</span>
+                   
+                   <span className="text-gray-400">Delivered:</span> 
+                   <span className="text-right font-bold text-green-400">{delivered}</span>
+                   
+                   <span className="text-gray-400">Cancelled:</span> 
+                   <span className="text-right font-bold text-red-400">{cancelled}</span>
+                </div>
+             </div>
+          </div>
+       )
+    }
+  
+    return <div className="w-40 text-center py-1.5 text-xs text-red-500 bg-red-900/10 border border-red-900/20 rounded-md">Failed</div>
+  }
+
+
 // --- HELPER COMPONENTS ---
 const StatusBadge = ({ status }) => {
   const statusConfig = {
@@ -300,7 +395,7 @@ const ShippingMethodDropdown = ({ currentMethod, onMethodChange }) => {
 // --- DATE RANGE PICKER COMPONENT ---
 const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPresetChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  
+   
   const handlePresetClick = (preset) => {
     onPresetChange(preset.value);
     if (preset.value !== "custom") {
@@ -353,7 +448,7 @@ const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPrese
                 </button>
               ))}
             </div>
-            
+             
             {/* Calendar */}
             <div>
               <CalendarComponent
@@ -376,7 +471,7 @@ const DateRangePicker = ({ dateRange, onDateRangeChange, selectedPreset, onPrese
           </div>
         </PopoverContent>
       </Popover>
-      
+       
       {dateRange && (
         <Button
           variant="ghost"
@@ -845,22 +940,22 @@ export default function App() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+   
   // Date filtering state
   const [dateRange, setDateRange] = useState(null);
   const [selectedPreset, setSelectedPreset] = useState(null);
-  
+   
   // Abandon State
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [orderToAbandon, setOrderToAbandon] = useState(null);
-  
+   
   // Note Modal State
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [noteOrder, setNoteOrder] = useState(null);
-  
+   
   // Status filter state
   const [statusFilter, setStatusFilter] = useState(null);
-  
+   
   // COLLAPSIBLE STATE (Only for the Status Widgets now)
   const [isStatusWidgetOpen, setIsStatusWidgetOpen] = useState(false);
   // Calculate Status Counts
@@ -888,7 +983,7 @@ export default function App() {
       if (order.callStatus === "No Answer" && !["Fake", "Cancelled", "Returned", "Abandoned"].includes(order.status)) {
         counts["No Answer"]++;
       }
-      
+       
       // NEW: Ready to Ship Logic (Processing AND Confirmed)
       if (order.status === "Processing" && order.callStatus === "Confirmed") {
         counts["ConfirmedProcessing"]++;
@@ -1139,21 +1234,21 @@ export default function App() {
         o.customer?.phone?.includes(searchTerm) ||
         o.id?.toString().includes(searchTerm)
     );
-    
+     
     // Apply date range filter
     if (dateRange && dateRange.from) {
       const fromDate = new Date(dateRange.from);
       fromDate.setHours(0, 0, 0, 0);
-      
+       
       const toDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
       toDate.setHours(23, 59, 59, 999);
-      
+       
       filtered = filtered.filter((o) => {
         const orderDate = new Date(o.date);
         return orderDate >= fromDate && orderDate <= toDate;
       });
     }
-    
+     
     if (statusFilter === "No Answer") {
       // Logic for the specific No Answer tab: Call Status is No Answer AND Status is NOT Fake/Cancelled/Returned
       filtered = filtered.filter((o) => 
@@ -1243,7 +1338,7 @@ export default function App() {
       bg: "bg-slate-500/10",
       border: "border-slate-500/20",
     },
- 
+  
   ];
   return (
     <div className="inter-font bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8 relative">
@@ -1423,7 +1518,7 @@ export default function App() {
             </button>
           </>
         )}
-        
+         
         {dateRange && (
           <>
             <span className="text-sm text-gray-400">Date range:</span>
@@ -1459,7 +1554,7 @@ export default function App() {
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
           />
         </div>
-        
+         
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
           {/* Date Range Picker */}
           <div className="w-full sm:w-auto">
@@ -1470,7 +1565,7 @@ export default function App() {
               onPresetChange={setSelectedPreset}
             />
           </div>
-          
+           
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
             <label className="text-sm text-gray-400">Rows per page:</label>
             <div className="relative">
@@ -1624,13 +1719,18 @@ export default function App() {
                           }
                         />
                       </td>
+                      {/* --- UPDATED ACTION COLUMN --- */}
                       <td className="whitespace-nowrap py-4 px-4 text-sm">
-                        <ActionDropdown
-                          currentStatus={order.status}
-                          onStatusChange={(newStatus) =>
-                            handleStatusChange(order.id, newStatus)
-                          }
-                        />
+                        <div className="flex flex-col gap-2">
+                           <ActionDropdown
+                              currentStatus={order.status}
+                              onStatusChange={(newStatus) =>
+                                 handleStatusChange(order.id, newStatus)
+                              }
+                           />
+                           {/* Fraud Badge moved here */}
+                           <FraudBadge phone={order.customer?.phone} />
+                        </div>
                       </td>
                     </tr>
                   );
