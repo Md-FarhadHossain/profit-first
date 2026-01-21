@@ -275,7 +275,8 @@ const HeroSection = () => {
             body: JSON.stringify({
                 name: formData.name,
                 phone: formData.number,
-                orderId: result.orderId
+                orderId: result.orderId,
+                dbId: result.mongoResult?.insertedId || result.insertedId || result._id // Corrected path to DB ID
             })
         });
       } catch (smsErr) {

@@ -9,7 +9,7 @@ import {
   ArrowUpRight, ArrowDownRight, Calendar, TrendingUp, 
   Package, DollarSign, Activity, MapPin, ChevronDown, 
   Smartphone, Cpu, Share2, Globe, ShieldCheck, CheckCircle, Send,
-  Megaphone, Wallet, ShoppingBag, X
+  Megaphone, Wallet, ShoppingBag, X, Clock
 } from 'lucide-react';
 import { format, subDays, isSameDay, startOfDay, isToday, isYesterday, isThisMonth, isThisYear, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { UAParser } from 'ua-parser-js'; 
@@ -316,10 +316,10 @@ export default function AnalyticsDashboard() {
     // If no valid orders exist after filtering, handle gracefully
     if (validOrders.length === 0 && orders.length > 0) return {
         totalOrders: 0, rangeOrdersCount: 0, rangeRevenue: 0, rangeShippedCount: 0, 
-        rangeDeliveredCount: 0, totalRevenue: 0, todayOrders: 0, growth: '0%', 
+        growth: '0%', 
         growthDirection: 'flat', chartData: [], statusData: [], locationData: [], 
         marketingData: [], insidePct: 0, paidPct: 0, osData: [], modelData: [], 
-        androidVersions: [], appContextData: []
+        androidVersions: [], appContextData: [], hourlyData: [], peakTimeLabel: 'N/A'
     };
 
     const today = startOfDay(new Date());
@@ -370,6 +370,9 @@ export default function AnalyticsDashboard() {
     
     // --- TECH ANALYTICS STORAGE ---
     const uaDataList = [];
+    
+    // --- PEAK TIME STORAGE ---
+    const hourlyCounts = new Array(24).fill(0);
 
     // --- CHART DATA SKELETON ---
     const chartDataArr = Array.from({ length: timeRangeInDays }, (_, i) => {
@@ -439,6 +442,10 @@ export default function AnalyticsDashboard() {
          } else {
             organicCount++;
          }
+
+         // --- HOURLY BREAKDOWN ---
+         const hour = createdDate.getHours();
+         hourlyCounts[hour]++;
       }
 
       // B. Shipped Logic 
@@ -505,6 +512,26 @@ export default function AnalyticsDashboard() {
     const totalMarketing = paidCount + organicCount;
     const paidPct = totalMarketing > 0 ? ((paidCount / totalMarketing) * 100).toFixed(0) : 0;
 
+    // --- HOURLY DATA ---
+    const hourlyData = hourlyCounts.map((count, hour) => {
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const h = hour % 12 || 12;
+        return { name: `${h} ${ampm}`, value: count };
+    });
+    
+    // Find Peak Time
+    let maxOrders = 0;
+    let peakHourIndex = 0;
+    hourlyCounts.forEach((count, idx) => {
+        if (count > maxOrders) {
+            maxOrders = count;
+            peakHourIndex = idx;
+        }
+    });
+    const peakAmpm = peakHourIndex >= 12 ? 'PM' : 'AM';
+    const peakH = peakHourIndex % 12 || 12;
+    const peakTimeLabel = maxOrders > 0 ? `${peakH} ${peakAmpm}` : "N/A";
+
     return {
       totalOrders: validOrders.length, // Uses only valid count
       rangeOrdersCount,
@@ -533,7 +560,9 @@ export default function AnalyticsDashboard() {
       osData,
       modelData,
       androidVersions,
-      appContextData
+      appContextData,
+      hourlyData,
+      peakTimeLabel
     };
   }, [orders, dateRange, selectedPreset]);
 
@@ -666,6 +695,63 @@ export default function AnalyticsDashboard() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+        </Card>
+      </div>
+
+
+
+      {/* PEAK TIME ANALYSIS */}
+      <div className="mb-8">
+        <Card className="min-h-[400px]">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-lg font-bold text-white">Peak Ordering Times</h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Most active hours of the day. Peak time: <span className="text-blue-400 font-bold">{analytics?.peakTimeLabel}</span>
+                    </p>
+                </div>
+                <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400 border border-blue-500/20">
+                    <Clock size={20} />
+                </div>
+            </div>
+            <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={analytics?.hourlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <defs>
+                            <linearGradient id="colorHourly" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+                        <XAxis 
+                            dataKey="name" 
+                            stroke="#6B7280" 
+                            tick={{fontSize: 10, fontWeight: 500}} 
+                            tickLine={false} 
+                            axisLine={false} 
+                            dy={10} 
+                            interval={1} 
+                        />
+                        <YAxis stroke="#6B7280" tick={{fontSize: 11, fontWeight: 500}} tickLine={false} axisLine={false} dx={-10} />
+                        <Tooltip 
+                            content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                return (
+                                    <div className="bg-gray-900/95 backdrop-blur-xl border border-gray-700 p-3 rounded-xl shadow-2xl z-50">
+                                        <p className="text-gray-400 text-xs mb-1 font-mono uppercase">{label}</p>
+                                        <p className="text-lg font-bold text-white">{payload[0].value} Orders</p>
+                                    </div>
+                                );
+                                }
+                                return null;
+                            }} 
+                            cursor={{fill: '#374151', opacity: 0.2}}
+                        />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={24} fill="url(#colorHourly)" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
         </Card>
       </div>
 

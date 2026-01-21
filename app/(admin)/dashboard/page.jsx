@@ -595,8 +595,13 @@ const OrderModal = ({
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Phone</p>
-                      <p className="font-medium text-white">
+                      <p className="font-medium text-white flex items-center gap-1">
                         {order.customer.phone}
+                        {order.smsStatus === "Sent" && (
+                          <span title="SMS Sent Successfully" className="text-green-400">
+                             <CheckCircle size={14} />
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -925,6 +930,7 @@ export default function App() {
           userAgent: order.clientInfo?.userAgent || order.userAgent || "",
           date: order.createdAt || new Date().toISOString(),
           note: order.note || "",
+          smsStatus: order.smsStatus || "Pending", // Map SMS Status
         }));
         setOrders(transformedData);
         const now = new Date();
@@ -1583,6 +1589,9 @@ export default function App() {
                         <div className="text-xs text-gray-400 mt-0.5">
                           <span className="hidden lg:block md:block">
                             {order.customer?.phone}
+                            {order.smsStatus === "Sent" && (
+                              <CheckCircle size={12} className="inline ml-1 text-green-400" />
+                            )}
                           </span>
                           <a
                             href={`tel:${order.customer?.phone}`}
