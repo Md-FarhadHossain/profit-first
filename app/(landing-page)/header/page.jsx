@@ -10,7 +10,7 @@ import WebsiteReview from "@/components/websiteReview";
 import OrderNowBtn from "@/components/orderNowBtn";
 import AniOrderNowBtn from "@/components/aniBtn";
 import TopHeader from "@/components/topHeader";
-import FreeGift from "@/components/freeGift"
+import BonusGifts from "@/components/BonusGifts"
 import BottomInfo from "@/components/bottomInfo"
 import BookInside from "@/components/bookInside"
 
@@ -49,6 +49,7 @@ const HeaderSection = () => {
       <WebsiteReview />
         <PageSwiper />
         {/* <FreeGift /> */}
+        <BonusGifts />
 
 
       
