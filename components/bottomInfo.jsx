@@ -1,6 +1,5 @@
 "use client";
 import React from 'react';
-import coverPh from "@/public/pf-cover-ph.png"
 import Image from "next/image";
 import heroBookCover from "@/components/assets/hero-book-cover.webp";
 

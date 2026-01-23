@@ -77,6 +77,10 @@ const BonusGifts = () => {
             </li>
             <li className="flex items-center gap-3 text-lg md:text-xl font-medium text-gray-800">
               <CheckCircle2 className="text-green-500 w-6 h-6 flex-shrink-0" />
+              <span>এফ-কমার্স বিজনেস কেস স্টাডি ইবুক</span>
+            </li>
+            <li className="flex items-center gap-3 text-lg md:text-xl font-medium text-gray-800">
+              <CheckCircle2 className="text-green-500 w-6 h-6 flex-shrink-0" />
               <span>৬০০+ ওয়ার্ডপ্রেস থিম & প্লাগিন</span>
             </li>
             <li className="flex items-center gap-3 text-lg md:text-xl font-medium text-gray-800">

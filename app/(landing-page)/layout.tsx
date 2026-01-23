@@ -26,7 +26,7 @@ const hindSiliguri = Hind_Siliguri({
 });
 
 export const metadata: Metadata = {
-  title: "",
+  title: "Profit First for F-Commerce | প্রফিট ফার্স্ট ফর এফ-কমার্স",
   description: "Profit first for f-commerce business in bangladesh book.",
 };
 
