@@ -1,24 +1,28 @@
 
+import dynamic from 'next/dynamic';
+
 import BookInfo from "@/components/bookInfo";
-import AllReaders from "@/components/allReaders";
-import WhatsInside from "@/components/whatsInside";
-import Testimonials from "@/components/testimonials";
-import BookVideo from "@/components/bookVideo";
-import GetsTheBook from "@/components/getsTheBook";
-import ReaderSaid from "@/components/readerSaid";
-import WebsiteReview from "@/components/websiteReview";
-import OrderNowBtn from "@/components/orderNowBtn";
-import AniOrderNowBtn from "@/components/aniBtn";
-import TopHeader from "@/components/topHeader";
-import BonusGifts from "@/components/BonusGifts"
-import BottomInfo from "@/components/bottomInfo"
-import BookInside from "@/components/bookInside"
+import BottomInfo from "@/components/bottomInfo";
+import Navbar from "@/components/Navbar";
 
-import HeroSction from "../hero/page";
-import PageSwiper from "@/components/PageSwiper";
-import PrivateCommunity from "@/components/PrivateCommunity"
+// Critical components kept static
+import AllReaders from "@/components/allReaders"; 
 
-import Navbar from "@/components/Navbar"
+// Lazy load below-the-fold components
+const Testimonials = dynamic(() => import("@/components/testimonials"));
+const BookVideo = dynamic(() => import("@/components/bookVideo"));
+const GetsTheBook = dynamic(() => import("@/components/getsTheBook"));
+const ReaderSaid = dynamic(() => import("@/components/readerSaid"));
+const WebsiteReview = dynamic(() => import("@/components/websiteReview"));
+const OrderNowBtn = dynamic(() => import("@/components/orderNowBtn"));
+const AniOrderNowBtn = dynamic(() => import("@/components/aniBtn"));
+const TopHeader = dynamic(() => import("@/components/topHeader"));
+const BonusGifts = dynamic(() => import("@/components/BonusGifts"));
+const BookInside = dynamic(() => import("@/components/bookInside"));
+const HeroSction = dynamic(() => import("../hero/page"));
+const PageSwiper = dynamic(() => import("@/components/PageSwiper"));
+const PrivateCommunity = dynamic(() => import("@/components/PrivateCommunity"));
+// const WhatsInside = dynamic(() => import("@/components/whatsInside"));
 
 
 const HeaderSection = () => {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Hind_Siliguri } from "next/font/google";
 import "../globals.css";
 import localFont from 'next/font/local'
 import Script from "next/script";
@@ -18,6 +18,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const hindSiliguri = Hind_Siliguri({
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['bengali'],
+  variable: '--font-hind-siliguri',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: "",
   description: "Profit first for f-commerce business in bangladesh book.",
@@ -31,8 +38,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased ${myFont.className}`}
+        className={`${geistSans.variable} ${geistMono.variable} ${hindSiliguri.variable} antialiased ${myFont.className}`}
       >
+        <head>
+           {/* FontAwesome - Loaded in head for immediate availability to prevent flickering, but widely cached */}
+           <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+        </head>
         <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-TGJBSWJ7"

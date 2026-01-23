@@ -1,29 +1,19 @@
-"use client"
-import React, { useEffect } from 'react';
+"use client";
+import React from 'react';
 import coverPh from "@/public/pf-cover-ph.png"
+import Image from "next/image";
+import heroBookCover from "@/components/assets/hero-book-cover.webp";
 
 export default function HeroSection() {
   // Load Fonts and Icons
-  useEffect(() => {
-    const fontAwesome = document.createElement('link');
-    fontAwesome.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
-    fontAwesome.rel = "stylesheet";
-    document.head.appendChild(fontAwesome);
-
-    const googleFonts = document.createElement('link');
-    googleFonts.href = "https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap";
-    googleFonts.rel = "stylesheet";
-    document.head.appendChild(googleFonts);
-
-    return () => {
-      // Optional cleanup
-      // document.head.removeChild(fontAwesome);
-      // document.head.removeChild(googleFonts);
-    };
-  }, []);
+  // Load Fonts and Icons
+  // useEffect(() => {
+    // FontAwesome is now loaded in layout.tsx
+    // Google Fonts is replaced by next/font in layout.tsx
+  // }, []);
 
   return (
-    <div className="w-full min-h-screen bg-white text-[#495057] font-['Hind_Siliguri'] leading-relaxed overflow-x-hidden">
+    <div className="w-full min-h-screen bg-white text-[#495057] font-hind leading-relaxed overflow-x-hidden">
       
       {/* Custom Styles for Animation */}
       <style>{`
@@ -52,9 +42,10 @@ export default function HeroSection() {
               <div className="hidden lg:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-50 rounded-full blur-3xl -z-10 opacity-60"></div>
 
               <div className="relative group perspective-1000">
-                <img 
-                  src="https://i.ibb.co.com/nNC0bmsw/with-background-Copy.webp" 
+                <Image 
+                  src={heroBookCover} 
                   alt="Book Cover" 
+                  priority
                   className="w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[420px] h-auto mx-auto rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.2)] transition-transform duration-500 hover:scale-[1.02] hover:-translate-y-2 block"
                 />
               </div>
