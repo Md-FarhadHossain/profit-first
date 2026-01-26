@@ -419,32 +419,46 @@ const HeroSection = () => {
             <RadioGroup
               value={shipping}
               onValueChange={setShipping}
-              className="border rounded-lg"
+              className="gap-3"
               disabled={isSubmitting}
             >
               <Label
                 htmlFor="outside-dhaka"
-                className={`flex items-center justify-between p-4 border-b cursor-pointer text-xl transition-colors hover:bg-muted/50 ${
-                  shipping === "outside-dhaka" ? "bg-muted" : ""
+                className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer text-xl transition-all hover:bg-green-50/50 ${
+                  shipping === "outside-dhaka" 
+                    ? "bg-green-50 border-green-500 shadow-sm ring-1 ring-green-500" 
+                    : "border-gray-200 bg-white"
                 } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="outside-dhaka" id="outside-dhaka" disabled={isSubmitting} />
-                  <span className="text-2xl">ঢাকার বাহিরে:</span>
+                  <RadioGroupItem 
+                    value="outside-dhaka" 
+                    id="outside-dhaka" 
+                    disabled={isSubmitting} 
+                    className="h-6 w-6 border-2 data-[state=checked]:border-green-600 data-[state=checked]:text-green-600"
+                  />
+                  <span className="text-2xl font-medium">ঢাকার বাহিরে:</span>
                 </div>
-                <span className="font-medium">99.00৳</span>
+                <span className="font-bold text-gray-700">99.00৳</span>
               </Label>
               <Label
                 htmlFor="inside-dhaka"
-                className={`flex items-center justify-between p-4 cursor-pointer text-xl transition-colors hover:bg-muted/50 ${
-                  shipping === "inside-dhaka" ? "bg-muted" : ""
+                className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer text-xl transition-all hover:bg-green-50/50 ${
+                  shipping === "inside-dhaka" 
+                    ? "bg-green-50 border-green-500 shadow-sm ring-1 ring-green-500" 
+                    : "border-gray-200 bg-white"
                 } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center space-x-3">
-                  <RadioGroupItem value="inside-dhaka" id="inside-dhaka" disabled={isSubmitting} />
-                  <span className="text-2xl">ঢাকার ভিতরে:</span>
+                  <RadioGroupItem 
+                    value="inside-dhaka" 
+                    id="inside-dhaka" 
+                    disabled={isSubmitting} 
+                    className="h-6 w-6 border-2 data-[state=checked]:border-green-600 data-[state=checked]:text-green-600"
+                  />
+                  <span className="text-2xl font-medium">ঢাকার ভিতরে:</span>
                 </div>
-                <span className="font-medium">60.00৳</span>
+                <span className="font-bold text-gray-700">60.00৳</span>
               </Label>
             </RadioGroup>
           </div>
